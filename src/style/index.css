@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.electron-drag {
+  -webkit-app-region: drag;
+}
+.electron-nodrag {
+  -webkit-app-region: no-drag;
+}
+.submenu-holder {
+  position: relative;
+}
+.submenu-holder .submenu {
+  display: none;
+}
+.submenu-holder:hover .submenu {
+  display: block;
+}
+
+.pzviewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.pzviewer > img {
+  position: absolute;
+  max-width: none;
+  max-height: none;
+  transform: translate(-50%, -50%);
+  transition-property: height, width;
+  transition-duration: 200ms;
+  transition-timing-function: linear;
+}
+.pzviewer > img.loading {
+  transition: none;
+}
+
+.pzview-header {
+  -webkit-app-region: no-drag;
+}
+.pzview-header, .pzview-footer {
+  user-select: none;
+}
+.pzview-header > .content {
+  transform: translateY(-100%);
+  transition: transform 200ms linear;
+}
+.pzview-footer > .content {
+  transform: translateY(100%);
+  transition: transform 200ms linear;
+}
+.pzview-header:hover > .content, .pzview-footer:hover > .content {
+  transform: translateY(0);
+}

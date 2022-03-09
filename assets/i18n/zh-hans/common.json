@@ -1,0 +1,22 @@
+{
+  "open": "打开",
+  "create": "创建",
+  "have no opened file": "当前没有打开的文档",
+  "to open a file": "打开一个文档",
+  "or create a new pack": "或者创建一个新文档",
+  "close": "关闭",
+  "theme": "主题",
+  "user collection": "用户合集",
+  "help": "帮助",
+  "about": "关于",
+  "exit": "退出",
+
+  "dark theme": "深色模式",
+  "light theme": "浅色模式",
+  "system theme": "跟随系统",
+
+  "file opening": "打开文件",
+  "ok": "确定",
+  "cancel": "取消",
+  "password": "密码"
+}
