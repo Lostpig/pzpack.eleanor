@@ -1,9 +1,10 @@
 import React, { PropsWithChildren, useState, useImperativeHandle, useRef, ForwardedRef, forwardRef } from 'react'
 import { mergeCls } from '../utils'
-import { ViewIcon, ViewOffIcon } from '../icons/view'
+import { ViewIcon, ViewOffIcon, LockIcon, UnLockIcon } from '../icons'
 
 export type PZButtonProps = {
   type?: 'normal' | 'primary' | 'danger' | 'link' | 'icon'
+  title?: string
   className?: string
   disabled?: boolean
   onClick?: React.MouseEventHandler<HTMLButtonElement>
@@ -37,7 +38,7 @@ export const PZButton: React.FC<PropsWithChildren<PZButtonProps>> = (props) => {
   const classNames = mergeCls('text-sm mx-2 font-medium focus:outline-none', btnTypeStyle[type], props.className)
 
   return (
-    <button type="button" disabled={disabled} className={classNames} onClick={props.onClick}>
+    <button type="button" title={props.title} disabled={disabled} className={classNames} onClick={props.onClick}>
       {props.children}
     </button>
   )
@@ -91,3 +92,29 @@ export const PZPassword = forwardRef((props: PZPasswordProps, ref: ForwardedRef<
     </div>
   )
 })
+
+export type PZLockedProps = {
+  defaultValue: boolean
+  size: number
+  disabled?: boolean
+  title?: string
+  onChange?: (value: boolean) => void
+}
+export const PZLocked = (props: PZLockedProps) => {
+  const [value, setValue] = useState(props.defaultValue)
+  const toggleValue = () => {
+    const v = !value
+    setValue(v)
+    props.onChange?.(v)
+  }
+
+  return (
+    <div
+      className={mergeCls('mx-2 cursor-pointer', value ? 'text-red-600' : 'text-black dark:text-gray-50')}
+      title={props.title}
+      onClick={toggleValue}
+    >
+      {value ? <LockIcon size={props.size} /> : <UnLockIcon size={props.size} />}
+    </div>
+  )
+}

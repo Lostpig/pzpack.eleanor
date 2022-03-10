@@ -1,10 +1,11 @@
 import React, { PropsWithChildren, memo, useReducer, createContext, useMemo, useContext, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MinimizeIcon, MaximizeIcon, WindowizeIcon, CloseIcon } from '../icons'
+import { MinimizeIcon, MaximizeIcon, WindowizeIcon, CloseIcon, MenuIcon } from '../icons'
 import { mergeCls } from '../utils'
 import { useWindowState } from '../hooks/window'
 import { invokeIpc, sendToChannel } from '../service/ipc'
 import { openFile, saveFile } from '../service/modal'
+import { closePZLoader, PZLoaderObservable  } from '../service/pzpack'
 
 type TitleBarContext = {
   toggleMenu: (patch?: boolean) => void
@@ -70,7 +71,7 @@ const MainButton = () => {
 
   return (
     <TitleBarIcon onClick={() => ctx.toggleMenu()}>
-      <WindowizeIcon size={10} />
+      <MenuIcon size={20} />
     </TitleBarIcon>
   )
 }
@@ -146,6 +147,14 @@ const TitleMenuSeparator: React.FC = () => {
 const TitleMenu = (props: { hidden: boolean }) => {
   const { hidden } = props
   const [t] = useTranslation()
+  const [opened, setOpened] = useState(false)
+  useEffect(() => {
+    const subscription = PZLoaderObservable.subscribe((l) => {
+      if (l) setOpened(true)
+      else setOpened(false)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   return (
     <div
@@ -157,7 +166,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
     >
       <TitleMenuItem text={t('open')} onActive={openFile} />
       <TitleMenuItem text={t('create')} onActive={saveFile} />
-      <TitleMenuItem text={t('close')} />
+      <TitleMenuItem text={t('close')} disabled={!opened} onActive={closePZLoader} />
       <TitleMenuSeparator />
       <TitleMenuItem text={t('theme')}>
         <ThemeSubMenu />

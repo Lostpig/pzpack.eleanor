@@ -18,5 +18,8 @@
   "file opening": "打开文件",
   "ok": "确定",
   "cancel": "取消",
-  "password": "密码"
+  "password": "密码",
+
+  "auto zoom": "适应窗口",
+  "lock zoom": "锁定缩放"
 }

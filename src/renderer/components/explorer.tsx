@@ -1,5 +1,6 @@
 import React, { memo, useState, useContext, createContext, useEffect } from 'react'
 import { type PZLoader, type PZFolder, PZFilePacked } from 'pzpack'
+import naturalCompare from 'natural-compare-lite'
 import { openViewerFile } from './viewer'
 import { FiletypeIcon } from '../icons/filetype'
 import { PZButton } from './common'
@@ -71,12 +72,16 @@ const ExplorerList: React.FC<{ current: PZFolder }> = memo((props) => {
 
   return (
     <div className="flex-1 overflow-auto">
-      {children.folders.map((f) => (
-        <ExolorerFolder key={f.id} folder={f} />
-      ))}
-      {children.files.map((f) => (
-        <ExolorerFile key={f.fullname} file={f} />
-      ))}
+      {children.folders
+        .sort((a, b) => naturalCompare(a.name, b.name))
+        .map((f) => (
+          <ExolorerFolder key={f.id} folder={f} />
+        ))}
+      {children.files
+        .sort((a, b) => naturalCompare(a.name, b.name))
+        .map((f) => (
+          <ExolorerFile key={f.fullname} file={f} />
+        ))}
     </div>
   )
 })

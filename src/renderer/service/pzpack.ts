@@ -24,21 +24,25 @@ export const binding: Readonly<PZPackBindings> = {
 
 export const openPZPackFile = (file: string, password: string): OpenFileResult => {
   const { loader } = _bindings
+  let newLoader: PZLoader | undefined
 
   try {
     if (loader) {
       if (file === loader.filename) return { success: false, message: 'already opened file' }
-      loader.close()
-      _bindings.loader = undefined
     }
 
-    _bindings.loader = OpenPzFile(file, password)
-    PZLoaderNotify.next(_bindings.loader)
+    newLoader = OpenPzFile(file, password)
+    if (loader) {
+      loader.close()
+    }
+    _bindings.loader = newLoader
+    PZLoaderNotify.next(newLoader)
     return { success: true }
   } catch (err) {
-    _bindings.loader = undefined
     RendererLogger.errorStack(err)
-    PZLoaderNotify.next(undefined)
+    if (newLoader) {
+      newLoader.close()
+    }
 
     return { success: false, message: (err as Error).message }
   }
@@ -54,6 +58,13 @@ export const closePZLoader = () => {
 const imageStore = new Map<string, string>()
 const imageStoreSize = 10
 const imageIdQueue: string[] = []
+const clearAllImages = () => {
+  imageStore.clear()
+  while (imageIdQueue.length > 0) imageIdQueue.pop()
+}
+PZLoaderObservable.subscribe(() => {
+  clearAllImages()
+})
 const clearupImages = (lastest: string) => {
   const hasIdx = imageIdQueue.indexOf(lastest)
   if (hasIdx >= 0) {

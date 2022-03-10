@@ -1,12 +1,15 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react'
+import React, { useCallback, useEffect, useState, useRef, useReducer } from 'react'
+import { useTranslation } from 'react-i18next'
 import ReactDOM from 'react-dom'
 import { PZFilePacked, PZSubscription } from 'pzpack'
-import { PZButton } from './common'
+import naturalCompare from 'natural-compare-lite'
+import { PZButton, PZLocked } from './common'
 import {
   FullscreenIcon,
   UnFullscreenIcon,
   ZoomInIcon,
   ZoomOutIcon,
+  ResetZoomIcon,
   CloseLargeIcon,
   LeftIcon,
   RightIcon,
@@ -16,7 +19,16 @@ import { mergeCls, isImageFile } from '../utils'
 import { RendererLogger } from '../service/logger'
 import { wait } from '../../lib/utils'
 
-const zoomRange = [0.1, 0.25, 0.33, 0.5, 0.66, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5]
+type operation = 'next' | 'prev' | 'close' | 'fullscreen'
+type contentProps = {
+  index: number
+  list: PZFilePacked[]
+  fullscreen: boolean
+  onAction: (operate: operation) => void
+}
+type ImageViewerContext = {
+  file$: PZSubscription.PZBehaviorObservable<PZFilePacked | undefined>
+}
 type ViewerContentState = {
   zoom: number
 }
@@ -26,10 +38,13 @@ type ViewerContentBinding = {
   lockZoom: (locked: boolean) => void
   zoomIn: () => void
   zoomOut: () => void
+  zoomReset: () => void
   stateObserval: PZSubscription.PZNotify<ViewerContentState>
+  actionObserval: PZSubscription.PZNotify<operation>
 }
 
 let bindingInstance: ViewerContentBinding
+const zoomRange = [0.1, 5]
 const bindPositionHandles = (el: HTMLDivElement, img: HTMLImageElement) => {
   const operateState = {
     keeping: false,
@@ -73,7 +88,6 @@ const bindPositionHandles = (el: HTMLDivElement, img: HTMLImageElement) => {
   el.addEventListener('mousedown', (ev) => {
     // only left button pressed
     if (ev.buttons === 1) {
-      ev.stopPropagation()
       ev.preventDefault()
 
       operateState.keeping = true
@@ -82,7 +96,7 @@ const bindPositionHandles = (el: HTMLDivElement, img: HTMLImageElement) => {
   })
   el.addEventListener('mouseup', (ev) => {
     if (ev.buttons === 1) {
-      ev.stopPropagation()
+      RendererLogger.debug('on buttons === 1 fired')
       ev.preventDefault()
 
       if (operateState.keeping) {
@@ -113,6 +127,7 @@ const createViewerContentBinding = () => {
     let zoom = 1
     let zoomLocked = false
     const stateSubject = new PZSubscription.PZNotify<ViewerContentState>()
+    const actionSubject = new PZSubscription.PZNotify<operation>()
     const image = new Image()
     el.appendChild(image)
     const setZoom = () => {
@@ -129,23 +144,17 @@ const createViewerContentBinding = () => {
       return Math.min(1, w, h)
     }
     const zoomIn = () => {
-      if (zoom >= zoomRange[zoomRange.length - 1]) return
-      for (const z of zoomRange) {
-        if (z > zoom) {
-          zoom = z
-          break
-        }
-      }
+      const z = ((zoom * 10 + 1) ^ 0) / 10
+      zoom = z > zoomRange[1] ? zoomRange[1] : z
       setZoom()
     }
     const zoomOut = () => {
-      if (zoom <= zoomRange[0]) return
-      for (let i = zoomRange.length - 1; i >= 0; i--) {
-        if (zoomRange[i] < zoom) {
-          zoom = zoomRange[i]
-          break
-        }
-      }
+      const z = ((zoom * 10 - 1) ^ 0) / 10
+      zoom = z < zoomRange[0] ? zoomRange[0] : z
+      setZoom()
+    }
+    const zoomReset = () => {
+      zoom = computeDefaultZoom()
       setZoom()
     }
     const change = (url: string) => {
@@ -160,6 +169,28 @@ const createViewerContentBinding = () => {
       wait(100).then(() => image.classList.remove('loading'))
     }
     bindPositionHandles(el, image)
+    el.addEventListener('wheel', (ev) => {
+      ev.preventDefault()
+      ev.stopPropagation()
+      if (ev.deltaY < 0) zoomIn()
+      else if (ev.deltaY > 0) zoomOut()
+    })
+
+    // mouseup event not support property 'buttons'
+    let pressedButton = -1
+    el.addEventListener('mousedown', (ev) => {
+      if (ev.buttons === 8 || ev.buttons === 16) {
+        pressedButton = ev.buttons
+      }
+    })
+    el.addEventListener('mouseup', (ev) => {
+      if (pressedButton === 8) {
+        actionSubject.next('prev')
+      } else if (pressedButton === 16) {
+        actionSubject.next('next')
+      }
+      pressedButton = -1
+    })
 
     bindingInstance = {
       element: el,
@@ -167,7 +198,9 @@ const createViewerContentBinding = () => {
       lockZoom: (locked: boolean) => (zoomLocked = locked),
       zoomIn,
       zoomOut,
+      zoomReset,
       stateObserval: stateSubject,
+      actionObserval: actionSubject,
     }
   }
   return bindingInstance
@@ -189,13 +222,6 @@ const bindViewerContent = (container: HTMLDivElement | null) => {
   return contentBinding
 }
 
-type operation = 'next' | 'prev' | 'close' | 'fullscreen'
-type contentProps = {
-  index: number
-  list: PZFilePacked[]
-  fullscreen: boolean
-  onAction: (operate: operation) => void
-}
 const ViewFooterSeparator = () => {
   return <div className="mx-4 w-px h-4/5 bg-neutral-600 dark:bg-neutral-300"></div>
 }
@@ -204,6 +230,7 @@ const ViewerContent: React.FC<contentProps> = (props) => {
   const file = list[index]
   RendererLogger.debug(`ViewerContent render: ${index} / ${list.length}`)
 
+  const [t] = useTranslation()
   const [zoom, setZoom] = useState(100)
   const [contentBinding, setContent] = useState<ViewerContentBinding>()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -217,8 +244,13 @@ const ViewerContent: React.FC<contentProps> = (props) => {
     const subscription = contentBinding?.stateObserval.subscribe((s) => {
       setZoom(s.zoom * 100)
     })
-    return () => subscription?.unsubscribe()
-  }, [contentBinding])
+    const actSubscription = contentBinding?.actionObserval.subscribe(onAction)
+
+    return () => {
+      subscription?.unsubscribe()
+      actSubscription?.unsubscribe()
+    }
+  }, [contentBinding, onAction])
   useEffect(() => {
     if (file && contentBinding) {
       const url = loadImage(file)
@@ -228,8 +260,8 @@ const ViewerContent: React.FC<contentProps> = (props) => {
 
   return (
     <>
-      <header className="pzview-header electron-nodrag absolute top-0 left-0 w-full h-8  z-10">
-        <div className="content bg-white/50 dark:bg-neutral-800/50 flex flex-row h-full items-center">
+      <header className="pzview-header electron-nodrag absolute top-0 left-0 w-full h-16 pb-8 z-10">
+        <div className="content bg-white/70 dark:bg-neutral-800/70 flex flex-row h-8 items-center">
           <div className="flex-1 text-black dark:text-gray-50 pl-4">{file.name}</div>
           <PZButton type="icon" onClick={() => onAction('fullscreen')}>
             {fullscreen ? <UnFullscreenIcon size={24} /> : <FullscreenIcon size={24} />}
@@ -240,23 +272,27 @@ const ViewerContent: React.FC<contentProps> = (props) => {
         </div>
       </header>
       <div className="w-full h-full overflow-hidden" ref={containerRef}></div>
-      <footer className="pzview-footer absolute bottom-0 left-0 w-full h-8 z-10">
-        <div className="content bg-white/50 dark:bg-neutral-800/50 flex flex-row h-full items-center justify-center">
+      <footer className="pzview-footer absolute bottom-0 left-0 w-full h-16 z-10 pt-8">
+        <div className="content bg-white/70 dark:bg-neutral-800/70 flex flex-row h-8 items-center justify-center">
           <PZButton type="icon" onClick={contentBinding?.zoomOut}>
             <ZoomOutIcon size={24} />
           </PZButton>
-          <div className='text-black dark:text-gray-50'>
+          <div className="text-black dark:text-gray-50">
             <span>{zoom.toFixed(0)}</span>
             <span>%</span>
           </div>
           <PZButton type="icon" onClick={contentBinding?.zoomIn}>
             <ZoomInIcon size={24} />
           </PZButton>
+          <PZButton type="icon" title={t('auto zoom')} onClick={contentBinding?.zoomReset}>
+            <ResetZoomIcon size={24} />
+          </PZButton>
+          <PZLocked defaultValue={false} size={24} title={t('lock zoom')} onChange={contentBinding?.lockZoom} />
           <ViewFooterSeparator />
           <PZButton type="icon" onClick={() => onAction('prev')} disabled={index <= 0}>
             <LeftIcon size={24} />
           </PZButton>
-          <div className='text-black dark:text-gray-50'>
+          <div className="text-black dark:text-gray-50">
             <span>{index + 1}</span>
             <span className="mx-1">/</span>
             <span>{list.length}</span>
@@ -270,34 +306,68 @@ const ViewerContent: React.FC<contentProps> = (props) => {
   )
 }
 
-type ImageViewerContext = {
-  file$: PZSubscription.PZBehaviorObservable<PZFilePacked | undefined>
+type IndexChangePayload = {
+  action: 'reset' | 'next' | 'prev' | 'goto'
+  length: number
+  value: number
+}
+const idxNext = (length: number): IndexChangePayload => {
+  return { action: 'next', value: 0, length }
+}
+const idxPrev = (length: number): IndexChangePayload => {
+  return { action: 'prev', value: 0, length }
+}
+const idxGoto = (value: number, length: number): IndexChangePayload => {
+  return { action: 'goto', value, length }
+}
+const idxReset = (): IndexChangePayload => {
+  return { action: 'reset', value: 0, length: 0 }
+}
+const indexReducer = (prev: number, payload: IndexChangePayload) => {
+  if (payload.action === 'reset') return -1
+
+  let result = 0
+  if (payload.action === 'prev') result = prev - 1
+  else if (payload.action === 'next') result = prev + 1
+  else if (payload.action === 'goto') result = payload.value
+
+  if (result > payload.length - 1) result = payload.length - 1
+  if (result < 0) result = 0
+  return result
 }
 const ImageViewer = (props: { context: ImageViewerContext }) => {
   const { context } = props
   const [show, setShow] = useState<boolean>(false)
+  const [pid, setPid] = useState<number>(-1)
   const [list, setList] = useState<PZFilePacked[]>([])
-  const [index, setIndex] = useState<number>(-1)
+  const [index, dispatchIndex] = useReducer(indexReducer, -1)
   const ref = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
 
   const close = useCallback(() => {
     setList([])
-    setIndex(-1)
+    setPid(-1)
+    dispatchIndex(idxReset())
     setShow(false)
-  }, [setShow, setList, setIndex])
+  }, [setShow, setList, dispatchIndex, setPid])
   useEffect(() => {
     const fileSubscription = context.file$.subscribe((file) => {
       if (!binding.loader || !file) return close()
 
       const idx = binding.loader.loadIndex()
-      const folder = idx.getFolder(file.pid)
-      if (!folder) return close()
+      let imgList = list
+      if (pid !== file.pid) {
+        const folder = idx.getFolder(file.pid)
+        if (!folder) return close()
+        imgList = idx
+          .getChildren(folder)
+          .files.filter(isImageFile)
+          .sort((a, b) => naturalCompare(a.name, b.name))
+        setList(imgList)
+      }
 
-      const imgList = idx.getChildren(folder).files.filter(isImageFile)
       const findex = imgList.indexOf(file)
-      setList(imgList)
-      setIndex(findex)
+      dispatchIndex(idxGoto(findex, imgList.length))
       setShow(true)
     })
     const loaderSubscription = PZLoaderObservable.subscribe(() => close)
@@ -316,14 +386,12 @@ const ImageViewer = (props: { context: ImageViewerContext }) => {
   }, [show])
 
   const changeFile = useCallback(
-    (n: number) => {
-      if (n >= 0 && n < list.length) {
-        setIndex(n)
-      }
+    (action: 'prev' | 'next') => {
+      dispatchIndex(action === 'prev' ? idxPrev(list.length) : idxNext(list.length))
     },
     [list],
   )
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (ref.current) {
       if (!document.fullscreenElement) {
         ref.current.requestFullscreen().then(() => setFullscreen(true))
@@ -333,7 +401,7 @@ const ImageViewer = (props: { context: ImageViewerContext }) => {
         }
       }
     }
-  }
+  }, [ref.current])
   const actionHandler = useCallback(
     (operate: operation) => {
       switch (operate) {
@@ -341,10 +409,8 @@ const ImageViewer = (props: { context: ImageViewerContext }) => {
           setShow(false)
           break
         case 'next':
-          changeFile(index + 1)
-          break
         case 'prev':
-          changeFile(index - 1)
+          changeFile(operate)
           break
         case 'fullscreen':
           toggleFullscreen()
@@ -353,7 +419,7 @@ const ImageViewer = (props: { context: ImageViewerContext }) => {
           break
       }
     },
-    [index, list],
+    [changeFile, toggleFullscreen],
   )
 
   return (
