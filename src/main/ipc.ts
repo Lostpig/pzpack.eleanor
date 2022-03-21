@@ -1,7 +1,7 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import {  ipcMain, type BrowserWindow } from 'electron'
 import { PZSubscription } from 'pzpack'
 import { AppLogger } from './logger'
-import { Channel, ChHandler, ChPayload, ChData, InvokeChannel, InvokeHandler } from '../lib/ipc.channel'
+import type { Channel, ChHandler, ChPayload, ChData, InvokeChannel, InvokeHandler } from '../lib/ipc.channel'
 
 const receiverMap = new Map<string, PZSubscription.PZNotify<any>>()
 const getReceiver = (key: string) => {

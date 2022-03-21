@@ -1,4 +1,4 @@
-import { ConfigKey, ConfigValue } from '../../lib/declares'
+import type { ConfigKey, ConfigValue } from '../../lib/declares'
 import { invokeIpc } from './ipc'
 
 export const getConfig = <K extends ConfigKey>(key: K) => {

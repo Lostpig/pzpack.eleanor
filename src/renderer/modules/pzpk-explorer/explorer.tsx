@@ -1,30 +1,28 @@
-import React, { memo, useState, useContext, createContext, useEffect } from 'react'
-import { type PZLoader, type PZFolder, PZFilePacked } from 'pzpack'
+import React, { memo, useState, useContext, createContext, useEffect, useMemo } from 'react'
+import type { PZLoader, PZFolder, PZFilePacked } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
-import { openViewerFile } from './viewer'
-import { FiletypeIcon } from '../icons/filetype'
-import { PZButton } from './common'
-import { formatSize } from '../utils'
+import { FiletypeIcon } from '../icons'
+import { PZButton } from '../shared'
+import { formatSize, isImageFile } from '../../utils'
+import { ExplorerContext } from './hooks'
+import { useModalManager } from '../common'
+import { ImageViewer } from './image-viewer'
 
-type ContainerContext = {
-  loader: PZLoader
-}
-type ContentContext = {
+type ContentContextType = {
   navigate: (folder: PZFolder) => void
 }
-const ContainerToken = createContext<ContainerContext>({} as ContainerContext)
-const ContentToken = createContext<ContentContext>({ navigate: () => {} })
+const ContentContext = createContext<ContentContextType>({ navigate: () => {} })
 
 const Breadcrumbs: React.FC<{ current: PZFolder }> = memo((props) => {
-  const { loader } = useContext(ContainerToken)
-  const { navigate } = useContext(ContentToken)
+  const { loader } = useContext(ExplorerContext)
+  const { navigate } = useContext(ContentContext)
   const { current } = props
   const idx = loader.loadIndex()
   const list = idx.getFoldersToRoot(current)
 
   return (
     <div className="py-1 px-5 flex justify-start shadow-sm dark:shadow-black">
-      {list.map((f, i) => {
+      {list.map((f) => {
         const name = f.id === idx.root.id ? 'root' : f.name
         return (
           <div key={f.id}>
@@ -39,7 +37,7 @@ const Breadcrumbs: React.FC<{ current: PZFolder }> = memo((props) => {
 })
 const ExolorerFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
   const { folder } = props
-  const { navigate } = useContext(ContentToken)
+  const { navigate } = useContext(ContentContext)
 
   return (
     <div
@@ -54,10 +52,12 @@ const ExolorerFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
 })
 const ExolorerFile: React.FC<{ file: PZFilePacked }> = memo((props) => {
   const { file } = props
+  const { openImage } = useContext(ExplorerContext)
+
   return (
     <div
       className="flex items-center py-1 px-4 select-none hover:bg-blue-200 dark:text-gray-50 dark:hover:bg-neutral-600"
-      onDoubleClick={() => openViewerFile(file)}
+      onDoubleClick={() => openImage(file)}
     >
       <FiletypeIcon type={file.ext} size={20} />
       <div className="flex-1 text-ellipsis pl-4 overflow-hidden whitespace-nowrap">{file.name}</div>
@@ -66,7 +66,7 @@ const ExolorerFile: React.FC<{ file: PZFilePacked }> = memo((props) => {
   )
 })
 const ExplorerList: React.FC<{ current: PZFolder }> = memo((props) => {
-  const { loader } = useContext(ContainerToken)
+  const { loader } = useContext(ExplorerContext)
   const idx = loader.loadIndex()
   const children = idx.getChildren(props.current)
 
@@ -86,7 +86,7 @@ const ExplorerList: React.FC<{ current: PZFolder }> = memo((props) => {
   )
 })
 const ExplorerInfo: React.FC<{ current: PZFolder }> = memo((props) => {
-  const { loader } = useContext(ContainerToken)
+  const { loader } = useContext(ExplorerContext)
   const idx = loader.loadIndex()
   const children = idx.getChildren(props.current)
 
@@ -103,30 +103,44 @@ const ExplorerInfo: React.FC<{ current: PZFolder }> = memo((props) => {
 })
 
 const ExplorerContent = () => {
-  const { loader } = useContext(ContainerToken)
+  const { loader } = useContext(ExplorerContext)
   const idx = loader.loadIndex()
   const [currentFolder, setCurrentFolder] = useState(idx.root)
 
-  const context: ContentContext = { navigate: (folder) => setCurrentFolder(folder) }
+  const context: ContentContextType = useMemo(
+    () => ({ navigate: (folder) => setCurrentFolder(folder) }),
+    [setCurrentFolder],
+  )
   useEffect(() => {
     setCurrentFolder(idx.root)
   }, [loader])
 
   return (
     <div className="w-full h-full flex flex-col">
-      <ContentToken.Provider value={context}>
+      <ContentContext.Provider value={context}>
         <Breadcrumbs current={currentFolder} />
         <ExplorerList current={currentFolder} />
         <ExplorerInfo current={currentFolder} />
-      </ContentToken.Provider>
+      </ContentContext.Provider>
     </div>
   )
 }
 
-export const PZFileExplorer = memo((props: { loader: PZLoader }) => {
+export const PZFileExplorer: React.FC<{ loader: PZLoader }> = memo(({ loader }) => {
+  const { openModal } = useModalManager()
+  const openImage = (file: PZFilePacked) => {
+    if (!isImageFile(file)) return
+
+    const idx = loader.loadIndex()
+    const folder = idx.getFolder(file.pid)
+    if (!folder) return
+
+    openModal(<ImageViewer loader={loader} folder={folder} initFile={file} />)
+  }
+
   return (
-    <ContainerToken.Provider value={{ loader: props.loader }}>
+    <ExplorerContext.Provider value={{ loader, openImage }}>
       <ExplorerContent />
-    </ContainerToken.Provider>
+    </ExplorerContext.Provider>
   )
 })

@@ -33,14 +33,15 @@
   transition-duration: 200ms;
   transition-timing-function: linear;
 }
-.pzviewer > img.loading {
+.pzviewer.loading > img {
   transition: none;
 }
 
 .pzview-header {
   -webkit-app-region: no-drag;
 }
-.pzview-header, .pzview-footer {
+.pzview-header,
+.pzview-footer {
   user-select: none;
 }
 .pzview-header > .content {
@@ -51,6 +52,7 @@
   transform: translateY(100%);
   transition: transform 200ms linear;
 }
-.pzview-header:hover > .content, .pzview-footer:hover > .content {
+.pzview-header:hover > .content,
+.pzview-footer:hover > .content {
   transform: translateY(0);
 }

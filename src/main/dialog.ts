@@ -5,7 +5,7 @@ export const initializeDialog = () => {
   registerInvoke('fd:open', () => {
     const f = dialog.showOpenDialogSync({
       filters: [
-        { name: 'PZPack', extensions: ['pzpk'] },
+        { name: 'PZPack', extensions: ['pzpk', 'pzmv'] },
         { name: 'All Files', extensions: ['*'] },
       ],
       properties: ['openFile', 'showHiddenFiles']

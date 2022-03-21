@@ -4,11 +4,10 @@ import { wait } from 'lib/utils'
 import { ROOT } from './common'
 import { appWindow } from './window'
 import { registerInvoke, sendToChannel } from './ipc'
-import { AppLogger } from './logger'
+import { AppLogger, PZDefaultLogger, LogLevel } from './logger'
 
 const jsFile = path.join(ROOT, 'dist/renderer.js')
 const cssFile = path.join(ROOT, 'dist/style.css')
-
 
 const changeTrigger = (action: () => void) => {
   let triggerCounter = 0
@@ -26,12 +25,24 @@ const watchBuild = () => {
 }
 
 export const initializeDevMode = () => {
-  let isDevMode = process.argv.indexOf('--dev') > 1
+  const isDevMode = process.argv.indexOf('--dev') > 1
   if (isDevMode) {
     watchBuild()
     appWindow.openDevTool()
+
+    AppLogger.consoleLevel = LogLevel.DEBUG
+    AppLogger.fileLevel = LogLevel.INFO
+
+    PZDefaultLogger.consoleLevel = LogLevel.DEBUG
+    PZDefaultLogger.fileLevel = LogLevel.WARNING
+
     AppLogger.debug('##### application boot on dev mode #####')
-  } 
+  } else {
+    AppLogger.consoleLevel = LogLevel.WARNING
+    AppLogger.fileLevel = LogLevel.ERROR
+    PZDefaultLogger.consoleLevel = LogLevel.WARNING
+    PZDefaultLogger.fileLevel = LogLevel.ERROR
+  }
 
   registerInvoke('req:dev', () => isDevMode)
 }

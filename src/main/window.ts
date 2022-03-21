@@ -2,7 +2,7 @@ import { BrowserWindow, app } from 'electron'
 import { AppLogger } from './logger'
 import { EntryPage } from './common'
 import { config } from './config'
-import { ChData } from '../lib/ipc.channel'
+import type { ChData } from '../lib/ipc.channel'
 import { registerMainWindow, subscribeChannel, sendToChannel } from './ipc'
 
 let singleInstance: WindowManager

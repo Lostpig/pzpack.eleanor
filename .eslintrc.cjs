@@ -30,9 +30,10 @@ module.exports = {
     'import/external-module-folders': ['node_modules', 'node_modules/@types'],
     polyfills: ['fetch', 'Promise', 'URL', 'object-assign'],
   },
-  overrides: {
-    excludedFiles: ['dist/*.js']
-  },
+  overrides: [{
+    files: ['src/*.*'],
+    excludedFiles: ['dist/*.*']
+  }],
   rules: {
     strict: ['error', 'never'],
     'generator-star-spacing': 0,

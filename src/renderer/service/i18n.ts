@@ -1,6 +1,5 @@
-import * as fs from 'fs'
 import * as path from 'path'
-import { InitOptions, createInstance, type ResourceKey } from 'i18next'
+import { createInstance, type InitOptions, type ResourceKey } from 'i18next'
 import resourcesToBackend from 'i18next-resources-to-backend'
 import { initReactI18next } from 'react-i18next'
 import { getConfig } from './config'

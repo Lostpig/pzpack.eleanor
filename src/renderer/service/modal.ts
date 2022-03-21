@@ -1,42 +1,27 @@
 import { PZSubscription } from 'pzpack'
-import { checkFileExists } from '../../lib/io'
-import { RendererLogger } from './logger'
-import { invokeIpc } from './ipc'
-import { binding } from './pzpack'
 
 export type modalState = {
-  dialog: 'none' | 'open' | 'save' | 'building' | 'extracting'
-  args: string[]
+  contents: {
+    key: number
+    element: React.ReactElement<{ key: number }>
+  }[]
 }
-const modalStateNotify = new PZSubscription.PZNotify<modalState>()
+const modalStateNotify = new PZSubscription.PZBehaviorNotify<modalState>({ contents: [] })
+const keyCounter = (() => {
+  let i = 0
+  return () => i++
+})()
 
-export const openFile = async () => {
-  const file = await invokeIpc('fd:open', undefined)
-  if (!file || file.length === 0) return
-  if (file === binding.loader?.filename) return
+export const openModal = (element: React.ReactElement) => {
+  const key = keyCounter()
+  const state = modalStateNotify.current
 
-  const exists = checkFileExists(file)
-  if (!exists) {
-    RendererLogger.warning(`open file "${file}" not exists`)
-    return
-  }
-
-  modalStateNotify.next({ dialog: 'open', args: [file] })
+  modalStateNotify.next({ contents: [...state.contents, { key, element }] })
 }
-export const saveFile = async () => {
-  const file = await invokeIpc('fd:save', undefined)
-  if (!file || file.length === 0) return
-
-  const exists = checkFileExists(file)
-  if (exists) {
-    RendererLogger.warning(`save file "${file}" is already exists`)
-    return
-  }
-
-  modalStateNotify.next({ dialog: 'save', args: [file] })
-}
-export const closeModal = () => {
-  modalStateNotify.next({ dialog: 'none', args: [] })
+export const closeModal = (key: number) => {
+  const state = modalStateNotify.current
+  const removed = state.contents.filter(c => c.key !== key)
+  modalStateNotify.next({ contents: removed })
 }
 
 export const modalObservable = modalStateNotify.asObservable()

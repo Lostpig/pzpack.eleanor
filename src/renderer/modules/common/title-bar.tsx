@@ -1,11 +1,18 @@
-import React, { PropsWithChildren, memo, useReducer, createContext, useMemo, useContext, useState, useEffect } from 'react'
+import React, { useReducer, createContext, useMemo, useContext, useCallback, type PropsWithChildren } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MinimizeIcon, MaximizeIcon, WindowizeIcon, CloseIcon, MenuIcon } from '../icons'
-import { mergeCls } from '../utils'
-import { useWindowState } from '../hooks/window'
-import { invokeIpc, sendToChannel } from '../service/ipc'
-import { openFile, saveFile } from '../service/modal'
-import { closePZLoader, PZLoaderObservable  } from '../service/pzpack'
+import { mergeCls } from '../../utils'
+import {
+  useWindowState,
+  useWindowOperate,
+  usePackage,
+  useTheme,
+  usePZInstance,
+  usePZPackService,
+  useModalManager,
+  useIoService,
+} from './hooks'
+import { OpenFileDialog } from './dialogs'
 
 type TitleBarContext = {
   toggleMenu: (patch?: boolean) => void
@@ -26,33 +33,27 @@ const TitleBarIcon: React.FC<PropsWithChildren<React.DOMAttributes<HTMLDivElemen
   )
 }
 const TitleContent: React.FC = () => {
-  const [name, setName] = useState('Eleanor')
-  const [version, setVersion] = useState('')
-  useEffect(() => {
-    invokeIpc('req:package', undefined).then((pkg) => {
-      const firstLetter = pkg.name[0]
-      setName(firstLetter.toUpperCase() + pkg.name.slice(1))
-      setVersion(pkg.version)
-    })
-  }, [])
-
-
+  const pkg = usePackage()
   return (
     <div className="flex-1 text-center select-none">
-      <span className="inline-block align-middle">{name} {version}</span>
+      <span className="inline-block align-middle">
+        {pkg?.name ?? 'Eleanor'} {pkg?.version ?? ''}
+      </span>
     </div>
   )
 }
 const CloseButton = () => {
+  const { close } = useWindowOperate()
   return (
-    <TitleBarIcon onClick={() => sendToChannel('window::operate', 'close')}>
+    <TitleBarIcon onClick={close}>
       <CloseIcon size={10} />
     </TitleBarIcon>
   )
 }
 const MinimizeButton = () => {
+  const { minimize } = useWindowOperate()
   return (
-    <TitleBarIcon onClick={() => sendToChannel('window::operate', 'minimize')}>
+    <TitleBarIcon onClick={minimize}>
       <MinimizeIcon size={10} />
     </TitleBarIcon>
   )
@@ -78,6 +79,7 @@ const MainButton = () => {
 
 type TitleMenuItemProps = {
   disabled?: boolean
+  selected?: boolean
   onActive?: () => void
   text: string
 }
@@ -103,12 +105,13 @@ const TitleMenuItem: React.FC<PropsWithChildren<TitleMenuItemProps>> = (props) =
       )}
       onClick={activeHandler}
     >
+      {props.selected ? <span>*</span> : null}
       <span>{props.text}</span>
       {props.children}
     </div>
   )
 }
-const SubMenu: React.FC<PropsWithChildren<{}>> = (props) => {
+const SubMenu: React.FC = (props) => {
   return (
     <div
       className={mergeCls(
@@ -123,16 +126,13 @@ const SubMenu: React.FC<PropsWithChildren<{}>> = (props) => {
 }
 const ThemeSubMenu = () => {
   const [t] = useTranslation()
-
-  const themeHandler = (theme: 'dark' | 'light' | 'system') => {
-    sendToChannel('theme::set', theme)
-  }
+  const [theme, setTheme] = useTheme()
 
   return (
     <SubMenu>
-      <TitleMenuItem text={t('dark theme')} onActive={() => themeHandler('dark')} />
-      <TitleMenuItem text={t('light theme')} onActive={() => themeHandler('light')} />
-      <TitleMenuItem text={t('system theme')} onActive={() => themeHandler('system')} />
+      <TitleMenuItem text={t('dark theme')} selected={theme === 'dark'} onActive={() => setTheme('dark')} />
+      <TitleMenuItem text={t('light theme')} selected={theme === 'light'} onActive={() => setTheme('light')} />
+      <TitleMenuItem text={t('system theme')} selected={theme === 'system'} onActive={() => setTheme('system')} />
     </SubMenu>
   )
 }
@@ -147,14 +147,19 @@ const TitleMenuSeparator: React.FC = () => {
 const TitleMenu = (props: { hidden: boolean }) => {
   const { hidden } = props
   const [t] = useTranslation()
-  const [opened, setOpened] = useState(false)
-  useEffect(() => {
-    const subscription = PZLoaderObservable.subscribe((l) => {
-      if (l) setOpened(true)
-      else setOpened(false)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
+  const { close: closeWindow } = useWindowOperate()
+  const { closePZInstance } = usePZPackService()
+  const { openModal } = useModalManager()
+  const { openFile } = useIoService()
+  const instance = usePZInstance()
+  const opened = useMemo(() => instance !== undefined, [instance])
+
+  const openHandler = useCallback(async () => {
+    const file = await openFile()
+    if (file) {
+      openModal(<OpenFileDialog path={file} />)
+    }
+  }, [openFile, openModal])
 
   return (
     <div
@@ -164,9 +169,9 @@ const TitleMenu = (props: { hidden: boolean }) => {
         hidden && 'hidden',
       )}
     >
-      <TitleMenuItem text={t('open')} onActive={openFile} />
-      <TitleMenuItem text={t('create')} onActive={saveFile} />
-      <TitleMenuItem text={t('close')} disabled={!opened} onActive={closePZLoader} />
+      <TitleMenuItem text={t('open')} onActive={openHandler} />
+      <TitleMenuItem text={t('create')} />
+      <TitleMenuItem text={t('close')} disabled={!opened} onActive={closePZInstance} />
       <TitleMenuSeparator />
       <TitleMenuItem text={t('theme')}>
         <ThemeSubMenu />
@@ -176,7 +181,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
       <TitleMenuItem disabled text={t('help')} />
       <TitleMenuItem disabled text={t('about')} />
       <TitleMenuSeparator />
-      <TitleMenuItem text={t('exit')} onActive={() => sendToChannel('window::operate', 'close')} />
+      <TitleMenuItem text={t('exit')} onActive={closeWindow} />
     </div>
   )
 }

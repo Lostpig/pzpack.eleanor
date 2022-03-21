@@ -1,12 +1,12 @@
-import { ConfigKey, ConfigValue, PackageInfo } from './declares'
+import type { ConfigKey, ConfigValue, PackageInfo, Theme } from './declares'
 
 interface IPCChannelDeclareMap {
   'window::operate': 'close' | 'maximize' | 'minimize' | 'hidden' | 'visibility'
   'window::changed': 'resize' | 'maximize' | 'unmaximize' | 'minimize' | 'restore'
   'window::inited': { x: number; y: number; h: number; w: number; maximize: boolean; minimize: boolean }
   'renderer::ready': null
-  'theme::set': 'light' | 'dark' | 'system'
-
+  'theme::set': Theme
+  'theme::setted': Theme
   'dev::cssreload': null
 }
 
@@ -19,6 +19,7 @@ interface IPCInvokeDeclareMap {
   'req:root': [undefined, string]
   'req:config': [ConfigKey, ConfigValue<ConfigKey>]
   'req:package': [void, PackageInfo]
+  'req:theme': [void, 'light' | 'dark' | 'system']
   'set:config': [{ key: ConfigKey; value: ConfigValue<ConfigKey> }, void],
   'fd:open': [void, string]
   'fd:save': [void, string]
