@@ -1,6 +1,6 @@
 {
   "name": "eleanor",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Eleanor: A pzpack gui",
   "main": "main.cjs",
   "scripts": {
