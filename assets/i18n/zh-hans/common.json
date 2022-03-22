@@ -21,5 +21,40 @@
   "password": "密码",
 
   "auto zoom": "适应窗口",
-  "lock zoom": "锁定缩放"
+  "lock zoom": "锁定缩放",
+
+  "##_folders": "{{count, number}}个文件夹",
+  "##_files": "{{count, number}}个文件",
+  "##_videos": "{{count, number}}个视频",
+  "pack version ##": "文件版本: {{version}}",
+  "pack type ##": "文件类型: {{type}}",
+  "file description": "文件描述",
+
+  "create folder": "创建文件夹",
+  "add folder": "添加文件夹",
+  "add files": "添加文件",
+  "pack": "打包",
+  "rename": "重命名",
+  "delete": "删除",
+  "rename by sort": "按排序重命名",
+  "folder name": "文件夹名",
+  "file name": "文件名",
+  "name cannot be empty": "名称不能为空",
+
+  "description": "描述信息",
+  "build": "生成",
+  "building": "生成中...",
+  "building canceled": "已取消生成",
+  "build complete": "任务已完成",
+  "build complete message ##": "处理【{{total}}】数据共花费【{{time}}】，平均速度【{{speed}}/s】",
+  "current progress": "当前进度",
+  "total progress": "总进度",
+  "password cannot be empty": "密码不能为空",
+  "save target cannot be empty": "保存路径不能为空",
+  "save to": "保存到",
+
+  "file": "文件",
+  "complete": "完成",
+  "used time": "已用时间",
+  "set name": "输入名称"
 }

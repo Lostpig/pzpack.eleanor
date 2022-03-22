@@ -1,3 +1,5 @@
 export { PZButton, PZButtonProps } from './pz-button'
 export { PZPassword, PZPasswordProps, PZPasswordRef } from './pz-password'
 export { PZLocked, PZLockedProps } from './pz-locked'
+export { PZText, PZTextProps, PZTextRef } from './pz-text'
+export { PZProgress, PZProgressProps } from './pz-progress'

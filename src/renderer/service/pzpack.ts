@@ -1,4 +1,4 @@
-import { OpenPzFile, PZSubscription, type PZVideo, type PZLoader, type PZBuilder } from 'pzpack'
+import { OpenPzFile, PZSubscription, PZVideo, type PZLoader, PZIndexBuilder, PZBuilder } from 'pzpack'
 import { RendererLogger } from './logger'
 
 type OpenPZLoaderResult = {
@@ -7,11 +7,11 @@ type OpenPZLoaderResult = {
 }
 interface PZInstanceBase {
   type: 'builder' | 'mvbuilder' | 'loader' | 'mvloader'
-  binding: PZBuilder | PZLoader | PZVideo.PZMVBuilder
+  binding: PZIndexBuilder | PZLoader | PZVideo.PZMVBuilder | PZVideo.PZMVSimpleServer
 }
 interface PZBuilderInstance extends PZInstanceBase {
   type: 'builder'
-  binding: PZBuilder
+  binding: PZIndexBuilder
 }
 interface PZMVBuilderInstance extends PZInstanceBase {
   type: 'mvbuilder'
@@ -23,7 +23,7 @@ interface PZLoaderInstance extends PZInstanceBase {
 }
 interface PZMVLoaderInstance extends PZInstanceBase {
   type: 'mvloader'
-  binding: PZLoader
+  binding: PZVideo.PZMVSimpleServer
 }
 export type PZInstance = PZBuilderInstance | PZMVBuilderInstance | PZLoaderInstance | PZMVLoaderInstance
 
@@ -31,13 +31,20 @@ const PZInstanceNotify = new PZSubscription.PZBehaviorNotify<PZInstance | undefi
 export const PZInstanceObservable = PZInstanceNotify.asObservable()
 
 const closeInstance = (instance: PZInstance) => {
-  if (instance.type === 'loader' || instance.type === 'mvloader') {
+  if (instance.type === 'loader') {
     instance.binding.close()
+  } else if (instance.type === 'mvloader') {
+    instance.binding.close()
+    instance.binding.loader.close()
   }
 }
 const pushPZLoader = (loader: PZLoader) => {
-  const type = loader.type === 'PZPACK' ? 'loader' : 'mvloader'
-  PZInstanceNotify.next({ type, binding: loader })
+  if (loader.type === 'PZPACK') {
+    PZInstanceNotify.next({ type: 'loader', binding: loader })
+  } else {
+    const server = new PZVideo.PZMVSimpleServer(loader)
+    PZInstanceNotify.next({ type: 'mvloader', binding: server })
+  }
 }
 export const openPZloader = (file: string, password: string): OpenPZLoaderResult => {
   const instance = PZInstanceNotify.current
@@ -68,4 +75,23 @@ export const closePZInstance = () => {
     closeInstance(current)
     PZInstanceNotify.next(undefined)
   }
+}
+
+export const openPZBuilder = () => {
+  const instance = PZInstanceNotify.current
+  if (instance && instance.type === 'builder') return
+  if (instance) closeInstance(instance)
+
+  const indexBuilder = new PZIndexBuilder()
+  PZInstanceNotify.next({ type: 'builder', binding: indexBuilder })
+}
+export const startPZBuild = (indexBuilder: PZIndexBuilder, target: string, description: string, password: string) => {
+  const builder = new PZBuilder({
+    type: 'PZPACK',
+    indexBuilder,
+    password
+  })
+  builder.setDescription(description)
+  const task = builder.buildTo(target)
+  return task
 }

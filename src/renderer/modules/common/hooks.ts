@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { FirstLetterUpper } from '../../utils'
 import type { PackageInfo, Theme } from '../../../lib/declares'
-import { openFile, saveFile } from '../../service/io'
+import { openFile, saveFile, openDir, selectFiles } from '../../service/io'
 import { modalObservable, openModal, closeModal } from '../../service/modal'
-import { openPZloader, closePZInstance, PZInstanceObservable, type PZInstance } from '../../service/pzpack'
+import { openPZloader, closePZInstance, openPZBuilder, PZInstanceObservable, type PZInstance } from '../../service/pzpack'
 import { subscribeChannel, sendToChannel, invokeIpc } from '../../service/ipc'
 
 export const useNavigate = () => {
@@ -18,7 +18,7 @@ export const useNavigate = () => {
 }
 export const useIoService = () => {
   return useMemo(() => {
-    return { openFile, saveFile }
+    return { openFile, saveFile, openDir, selectFiles }
   }, [])
 }
 
@@ -51,7 +51,7 @@ export const usePZInstance = () => {
 }
 export const usePZPackService = () => {
   return useMemo(() => {
-    return { openPZloader, closePZInstance }
+    return { openPZloader, closePZInstance, openPZBuilder }
   }, [])
 }
 

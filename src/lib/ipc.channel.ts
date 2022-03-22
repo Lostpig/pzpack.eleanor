@@ -22,6 +22,7 @@ interface IPCInvokeDeclareMap {
   'req:theme': [void, 'light' | 'dark' | 'system']
   'set:config': [{ key: ConfigKey; value: ConfigValue<ConfigKey> }, void],
   'fd:open': [void, string]
+  'fd:select': [void, string[]]
   'fd:save': [void, string]
   'fd:dir': [void, string]
   'req:dev': [void, boolean]

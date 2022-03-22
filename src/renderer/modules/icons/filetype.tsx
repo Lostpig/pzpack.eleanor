@@ -1,7 +1,7 @@
 import React from 'react'
 
-const getFileTypeImg = (type: string) => {
-  const t = type.toLowerCase()
+const getFileTypeImg = (type: string | undefined) => {
+  const t = type?.toLowerCase() ?? ''
 
   let img = 'unknown.png'
   if (t === 'folder') {

@@ -1,42 +1,28 @@
 import React, { useContext, useEffect, useRef } from 'react'
-import { PZVideo, type PZFolder, type PZLoader } from 'pzpack'
+import type { PZVideo, PZFolder } from 'pzpack'
 import { MediaPlayer } from 'dashjs'
 import { ModalContext, useModalManager } from '../common'
 import { PZButton } from '../shared'
 import { CloseLargeIcon } from '../icons'
 
-export const createPlayerServer = (loader: PZLoader, video: PZFolder) => {
-  const server = new PZVideo.PZMVSimpleServer(loader)
-  const close = () => server.close()
-
-  server.start()
-  const port = server.port
-  const url = `http://localhost:${port}/${video.id}/play.mpd`
-
-  return {
-    url,
-    close,
-  }
-}
-
-export const VideoPlayer: React.FC<{ loader: PZLoader; video: PZFolder }> = ({ loader, video }) => {
+export const VideoPlayer: React.FC<{ server: PZVideo.PZMVSimpleServer; video: PZFolder }> = ({ server, video }) => {
   const ref = useRef<HTMLVideoElement>(null)
   const { id } = useContext(ModalContext)
   const { closeModal } = useModalManager()
 
   useEffect(() => {
+    if (!server.running) server.start()
     if (ref.current) {
-      const { url, close: closeServer } = createPlayerServer(loader, video)
+      const url = `http://localhost:${server.port}/${video.id}/play.mpd`
       const player = MediaPlayer().create()
       player.initialize(ref.current, url, true)
 
       return () => {
-        closeServer()
         player.destroy()
       }
     }
     return () => {}
-  }, [ref.current, loader, video])
+  }, [ref.current, server, video])
 
   return (
     <div className="absolute top-0 left-0 w-screen h-screen bg-white dark:bg-neutral-700">

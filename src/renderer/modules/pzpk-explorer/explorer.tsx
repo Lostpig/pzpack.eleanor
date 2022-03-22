@@ -1,33 +1,48 @@
-import React, { memo, useState, useContext, createContext, useEffect, useMemo } from 'react'
+import React, { memo, useState, useContext, createContext, useEffect, useMemo, useCallback } from 'react'
 import type { PZLoader, PZFolder, PZFilePacked } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
-import { FiletypeIcon } from '../icons'
+import { FiletypeIcon, RightIcon, InfoIcon } from '../icons'
 import { PZButton } from '../shared'
 import { formatSize, isImageFile } from '../../utils'
 import { ExplorerContext } from './hooks'
-import { useModalManager } from '../common'
+import { useModalManager, useInfoDialog } from '../common'
 import { ImageViewer } from './image-viewer'
+import { useTranslation } from 'react-i18next'
 
 type ContentContextType = {
   navigate: (folder: PZFolder) => void
 }
 const ContentContext = createContext<ContentContextType>({ navigate: () => {} })
 
+const ExplorerInfoSeparator = () => {
+  return <div className="mx-3 w-px h-4/5 bg-neutral-400"></div>
+}
 const Breadcrumbs: React.FC<{ current: PZFolder }> = memo((props) => {
   const { loader } = useContext(ExplorerContext)
+  const [t] = useTranslation()
   const { navigate } = useContext(ContentContext)
   const { current } = props
   const idx = loader.loadIndex()
   const list = idx.getFoldersToRoot(current)
+  const info = useInfoDialog()
+  const showDesc = useCallback(() => {
+    const desc = loader.getDescription()
+    info(desc, t('file description'))
+  }, [loader, info, t])
 
   return (
-    <div className="py-1 px-5 flex justify-start shadow-sm dark:shadow-black">
+    <div className="py-1 px-3 flex items-center justify-start shadow-sm dark:shadow-black">
+      <PZButton type="icon" onClick={showDesc}>
+        <InfoIcon size={20} />
+      </PZButton>
+      <ExplorerInfoSeparator />
       {list.map((f) => {
         const name = f.id === idx.root.id ? 'root' : f.name
         return (
           <div key={f.id}>
-            <PZButton className="mr-1" type="link" onClick={() => navigate(f)} disabled={f === current}>
-              {name} {f === current ? '' : '>'}
+            <PZButton className="flex items-center" type="link" onClick={() => navigate(f)} disabled={f === current}>
+              <span className="mr-4">{name}</span>
+              {f === current ? null : <RightIcon size={16} />}
             </PZButton>
           </div>
         )
@@ -86,17 +101,25 @@ const ExplorerList: React.FC<{ current: PZFolder }> = memo((props) => {
   )
 })
 const ExplorerInfo: React.FC<{ current: PZFolder }> = memo((props) => {
+  const [t] = useTranslation()
   const { loader } = useContext(ExplorerContext)
   const idx = loader.loadIndex()
   const children = idx.getChildren(props.current)
 
   return (
-    <div className="flex flex-row border-t border-neutral-400 dark:border-neutral-700 dark:text-gray-50">
-      <div className="flex-1">
-        <span>{children.folders.length} folders</span>|<span>{children.files.length} files</span>
-      </div>
-      <div className="text-right">
-        <span>{loader.filename}</span>|<span>{formatSize(loader.size)}</span>
+    <div className="flex flex-row border-t px-4 py-1 border-neutral-400 dark:border-neutral-700 dark:text-gray-50">
+      <div className="flex-1 flex items-center">
+        <span>{t('##_folders', { count: children.folders.length })}</span>
+        <ExplorerInfoSeparator />
+        <span>{t('##_files', { count: children.files.length })}</span>
+        <ExplorerInfoSeparator />
+        <span>{formatSize(loader.size)}</span>
+        <ExplorerInfoSeparator />
+        <span>{t('pack version ##', { version: loader.version })}</span>
+        <ExplorerInfoSeparator />
+        <span>{t('pack type ##', { type: loader.type })}</span>
+        <ExplorerInfoSeparator />
+        <span>{loader.filename}</span>
       </div>
     </div>
   )

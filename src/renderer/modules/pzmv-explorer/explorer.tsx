@@ -1,5 +1,6 @@
 import React, { createContext, memo, useCallback, useContext, useEffect, useState } from 'react'
-import type { PZLoader, PZFolder } from 'pzpack'
+import { useTranslation } from 'react-i18next'
+import type { PZFolder, PZVideo } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
 import { FiletypeIcon } from '../icons'
 import { useModalManager } from '../common'
@@ -11,7 +12,10 @@ type ExplorerContextType = {
 }
 const ExplorerContext = createContext({} as ExplorerContextType)
 
-const ExolorerVideo: React.FC<{ loader: PZLoader; folder: PZFolder }> = memo(({ loader, folder }) => {
+const ExplorerInfoSeparator = () => {
+  return <div className="mx-3 w-px h-4/5 bg-neutral-400"></div>
+}
+const ExolorerVideo: React.FC<{ server: PZVideo.PZMVSimpleServer; folder: PZFolder }> = memo(({ server, folder }) => {
   const [time, setTime] = useState(formatTime(0))
   const { openVideoPlayer } = useContext(ExplorerContext)
   const openVideo = useCallback(() => {
@@ -19,10 +23,10 @@ const ExolorerVideo: React.FC<{ loader: PZLoader; folder: PZFolder }> = memo(({ 
   }, [openVideoPlayer])
 
   useEffect(() => {
-    parseVideoTime(loader, folder).then((t) => {
+    parseVideoTime(server.loader, folder).then((t) => {
       setTime(formatTime(t))
     })
-  }, [loader, folder.id])
+  }, [server, folder.id])
 
   return (
     <div
@@ -35,47 +39,51 @@ const ExolorerVideo: React.FC<{ loader: PZLoader; folder: PZFolder }> = memo(({ 
     </div>
   )
 })
-const ExplorerList: React.FC<{ loader: PZLoader }> = memo(({ loader }) => {
-  const idx = loader.loadIndex()
-  const children = idx.getChildren(idx.root)
+const ExplorerList: React.FC<{ server: PZVideo.PZMVSimpleServer }> = memo(({ server }) => {
+  const videos = server.getVideoFolders()
 
   return (
     <div className="flex-1 overflow-auto">
-      {children.folders
+      {videos
         .sort((a, b) => naturalCompare(a.name, b.name))
         .map((f) => (
-          <ExolorerVideo key={f.id} folder={f} loader={loader} />
+          <ExolorerVideo key={f.id} folder={f} server={server} />
         ))}
     </div>
   )
 })
-const ExplorerInfo: React.FC<{ loader: PZLoader }> = memo(({ loader }) => {
-  const idx = loader.loadIndex()
-  const children = idx.getChildren(idx.root)
+const ExplorerInfo: React.FC<{ server: PZVideo.PZMVSimpleServer }> = memo(({ server }) => {
+  const [t] = useTranslation()
+  const videos = server.getVideoFolders()
 
   return (
-    <div className="flex flex-row border-t border-neutral-400 dark:border-neutral-700 dark:text-gray-50">
-      <div className="flex-1">
-        <span>{children.folders.length} videos</span>
-      </div>
-      <div className="text-right">
-        <span>{loader.filename}</span>|<span>{formatSize(loader.size)}</span>
+    <div className="flex flex-row border-t px-4 py-1 border-neutral-400 dark:border-neutral-700 dark:text-gray-50">
+      <div className="flex-1 flex items-center">
+        <span>{t('##_videos', { count: videos.length })}</span>
+        <ExplorerInfoSeparator />
+        <span>{formatSize(server.loader.size)}</span>
+        <ExplorerInfoSeparator />
+        <span>{t('pack version ##', { version: server.loader.version })}</span>
+        <ExplorerInfoSeparator />
+        <span>{t('pack type ##', { type: server.loader.type })}</span>
+        <ExplorerInfoSeparator />
+        <span>{server.loader.filename}</span>
       </div>
     </div>
   )
 })
 
-export const PZVideoExplorer: React.FC<{ loader: PZLoader }> = memo(({ loader }) => {
+export const PZVideoExplorer: React.FC<{ server: PZVideo.PZMVSimpleServer }> = memo(({ server }) => {
   const { openModal } = useModalManager()
   const openVideoPlayer = (video: PZFolder) => {
-    openModal(<VideoPlayer loader={loader} video={video} />)
+    openModal(<VideoPlayer server={server} video={video} />)
   }
 
   return (
     <div className="w-full h-full flex flex-col pt-4">
       <ExplorerContext.Provider value={{ openVideoPlayer }}>
-        <ExplorerList loader={loader} />
-        <ExplorerInfo loader={loader} />
+        <ExplorerList server={server} />
+        <ExplorerInfo server={server} />
       </ExplorerContext.Provider>
     </div>
   )

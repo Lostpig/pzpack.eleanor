@@ -8,10 +8,18 @@ export const initializeDialog = () => {
         { name: 'PZPack', extensions: ['pzpk', 'pzmv'] },
         { name: 'All Files', extensions: ['*'] },
       ],
-      properties: ['openFile', 'showHiddenFiles']
+      properties: ['openFile', 'showHiddenFiles'],
     })
 
     return f?.[0] ?? ''
+  })
+  registerInvoke('fd:select', () => {
+    const f = dialog.showOpenDialogSync({
+      filters: [{ name: 'All Files', extensions: ['*'] }],
+      properties: ['openFile', 'multiSelections', 'showHiddenFiles'],
+    })
+
+    return f ?? []
   })
 
   registerInvoke('fd:save', () => {
@@ -20,15 +28,15 @@ export const initializeDialog = () => {
         { name: 'PZPack', extensions: ['pzpk'] },
         { name: 'All Files', extensions: ['*'] },
       ],
-      properties: ['showHiddenFiles']
+      properties: ['showHiddenFiles'],
     })
 
-    return f?.[0] ?? ''
+    return f ?? ''
   })
 
   registerInvoke('fd:dir', () => {
     const f = dialog.showOpenDialogSync({
-      properties: ['openDirectory', 'promptToCreate', 'showHiddenFiles']
+      properties: ['openDirectory', 'promptToCreate', 'showHiddenFiles'],
     })
 
     return f?.[0] ?? ''

@@ -1,18 +1,9 @@
-import React, { useReducer, createContext, useMemo, useContext, useCallback, type PropsWithChildren } from 'react'
+import React, { useReducer, createContext, useMemo, useContext, type PropsWithChildren, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MinimizeIcon, MaximizeIcon, WindowizeIcon, CloseIcon, MenuIcon } from '../icons'
 import { mergeCls } from '../../utils'
-import {
-  useWindowState,
-  useWindowOperate,
-  usePackage,
-  useTheme,
-  usePZInstance,
-  usePZPackService,
-  useModalManager,
-  useIoService,
-} from './hooks'
-import { OpenFileDialog } from './dialogs'
+import { useWindowState, useWindowOperate, usePackage, useTheme, usePZInstance, usePZPackService } from './hooks'
+import { useOpenFileDialog, useConfirmDialog } from './dialogs'
 
 type TitleBarContext = {
   toggleMenu: (patch?: boolean) => void
@@ -148,18 +139,21 @@ const TitleMenu = (props: { hidden: boolean }) => {
   const { hidden } = props
   const [t] = useTranslation()
   const { close: closeWindow } = useWindowOperate()
-  const { closePZInstance } = usePZPackService()
-  const { openModal } = useModalManager()
-  const { openFile } = useIoService()
+  const { closePZInstance, openPZBuilder } = usePZPackService()
   const instance = usePZInstance()
   const opened = useMemo(() => instance !== undefined, [instance])
-
-  const openHandler = useCallback(async () => {
-    const file = await openFile()
-    if (file) {
-      openModal(<OpenFileDialog path={file} />)
+  const openFile = useOpenFileDialog()
+  const confirm = useConfirmDialog()
+  const openBuilder = useCallback(() => {
+    if (instance && instance.type !== 'builder') {
+      const ob = confirm(t('has opened doc alert'), t('warning'))
+      ob.subscribe((ok) => {
+        if (ok === 'ok') openPZBuilder()
+      })
+    } else {
+      openPZBuilder()
     }
-  }, [openFile, openModal])
+  }, [instance, confirm, openPZBuilder])
 
   return (
     <div
@@ -169,8 +163,8 @@ const TitleMenu = (props: { hidden: boolean }) => {
         hidden && 'hidden',
       )}
     >
-      <TitleMenuItem text={t('open')} onActive={openHandler} />
-      <TitleMenuItem text={t('create')} />
+      <TitleMenuItem text={t('open')} onActive={openFile} />
+      <TitleMenuItem text={t('create')} onActive={openBuilder} />
       <TitleMenuItem text={t('close')} disabled={!opened} onActive={closePZInstance} />
       <TitleMenuSeparator />
       <TitleMenuItem text={t('theme')}>

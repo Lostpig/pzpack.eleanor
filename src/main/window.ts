@@ -49,6 +49,8 @@ class WindowManager {
     this.main = new BrowserWindow({
       titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : undefined,
       transparent: process.platform === 'darwin',
+      minWidth: 900,
+      minHeight: 600,
       frame: false,
       enableLargerThanScreen: false,
       maximizable: true,

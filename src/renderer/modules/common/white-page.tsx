@@ -1,20 +1,11 @@
-import React, { useCallback } from 'react'
+import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { PZButton } from '../shared'
-import { useModalManager, useIoService } from './hooks'
-import { OpenFileDialog } from './dialogs'
+import { useOpenFileDialog } from './dialogs'
 
 export const WhitePage: React.FC = () => {
   const [t] = useTranslation()
-  const { openModal } = useModalManager()
-  const { openFile } = useIoService()
-
-  const openHandler = useCallback(async () => {
-    const file = await openFile()
-    if (file) {
-      openModal(<OpenFileDialog path={file} />)
-    }
-  }, [openFile, openModal])
+  const openHandler = useOpenFileDialog()
 
   return (
     <div className="h-full w-full flex flex-col items-center justify-center text-black dark:text-gray-50">

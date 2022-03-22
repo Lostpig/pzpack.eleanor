@@ -23,8 +23,8 @@ const btnTypeStyle = {
     'disabled:bg-neutral-500 disabled:hover:bg-neutral-500 disabled:text-neutral-300 disabled:cursor-default',
   ),
   link: mergeCls(
-    'bg-transparent text-blue-500 hover:text-blue-700',
-    'disabled:text-neutral-400 disabled:hover:text-neutral-400 disabled:cursor-default',
+    'bg-transparent text-black dark:text-gray-50 hover:text-blue-500',
+    'disabled:hover:text-black dark:disabled:hover:text-gray-50 disabled:cursor-default',
   ),
   icon: mergeCls(
     'bg-transparent text-black dark:text-gray-50 hover:text-blue-500',
