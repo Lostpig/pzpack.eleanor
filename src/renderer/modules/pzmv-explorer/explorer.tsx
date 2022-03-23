@@ -43,7 +43,7 @@ const ExplorerList: React.FC<{ server: PZVideo.PZMVSimpleServer }> = memo(({ ser
   const videos = server.getVideoFolders()
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 auto-scrollbar">
       {videos
         .sort((a, b) => naturalCompare(a.name, b.name))
         .map((f) => (

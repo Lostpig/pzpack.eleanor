@@ -2,30 +2,31 @@ import { dialog } from 'electron'
 import { registerInvoke } from './ipc'
 
 export const initializeDialog = () => {
-  registerInvoke('fd:open', () => {
+  registerInvoke('fd:open', (filters?) => {
+    const appendFilters = filters ?? []
+
     const f = dialog.showOpenDialogSync({
-      filters: [
-        { name: 'PZPack', extensions: ['pzpk', 'pzmv'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
+      filters: [...appendFilters, { name: 'All Files', extensions: ['*'] }],
       properties: ['openFile', 'showHiddenFiles'],
     })
 
     return f?.[0] ?? ''
   })
-  registerInvoke('fd:select', () => {
+  registerInvoke('fd:select', (filters?) => {
+    const appendFilters = filters ?? []
+
     const f = dialog.showOpenDialogSync({
-      filters: [{ name: 'All Files', extensions: ['*'] }],
+      filters: [...appendFilters, { name: 'All Files', extensions: ['*'] }],
       properties: ['openFile', 'multiSelections', 'showHiddenFiles'],
     })
 
     return f ?? []
   })
 
-  registerInvoke('fd:save', () => {
+  registerInvoke('fd:save', (type) => {
     const f = dialog.showSaveDialogSync({
       filters: [
-        { name: 'PZPack', extensions: ['pzpk'] },
+        { name: type, extensions: [type === 'PZPACK' ? 'pzpk' : 'pzmv'] },
         { name: 'All Files', extensions: ['*'] },
       ],
       properties: ['showHiddenFiles'],

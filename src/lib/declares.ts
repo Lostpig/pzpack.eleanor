@@ -8,6 +8,7 @@ export interface ConfigSet {
 
   ffmpeg?: string
   tempDir?: string
+  externalPlayer?: string
 }
 export type ConfigKey = keyof ConfigSet
 export type ConfigValue<K extends ConfigKey> = ConfigSet[K]

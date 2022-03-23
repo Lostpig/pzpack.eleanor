@@ -86,7 +86,7 @@ const ExplorerList: React.FC<{ current: PZFolder }> = memo((props) => {
   const children = idx.getChildren(props.current)
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 auto-scrollbar">
       {children.folders
         .sort((a, b) => naturalCompare(a.name, b.name))
         .map((f) => (

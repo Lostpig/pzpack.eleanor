@@ -3,7 +3,7 @@ import React, { memo, useState, useContext, createContext, useMemo, useEffect, u
 import { useTranslation } from 'react-i18next'
 import { PZHelper, type PZFolder, type PZFileBuilding, type PZIndexBuilder } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
-import { useIoService } from '../common'
+import { useInfoDialog, useIoService, useSetNamDialog } from '../common'
 import { FiletypeIcon, RightIcon } from '../icons'
 import { PZButton } from '../shared'
 import { RendererLogger } from 'renderer/service/logger'
@@ -80,7 +80,7 @@ const BuilderFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
   const [t] = useTranslation()
   const { builder } = useContext(BuilderContext)
   const { navigate } = useContext(ContentContext)
-  const { openSetNameDialog } = useBuilderDialogs()
+  const openSetNameDialog = useSetNamDialog()
   const deleteHandler = useCallback(() => {
     builder.removeFolder(folder)
   }, [folder])
@@ -112,7 +112,7 @@ const BuilderFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
 const BuilderFile: React.FC<{ file: PZFileBuilding }> = memo((props) => {
   const { file } = props
   const { builder } = useContext(BuilderContext)
-  const { openSetNameDialog } = useBuilderDialogs()
+  const openSetNameDialog = useSetNamDialog()
   const [t] = useTranslation()
   const deleteHandler = useCallback(() => {
     builder.removeFile(file)
@@ -148,7 +148,7 @@ const BuilderList: React.FC<{ current: PZFolder; update: number }> = memo((props
   const children = useMemo(() => builder.getChildren(props.current.id), [builder, current, update])
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 auto-scrollbar">
       {children.folders
         .sort((a, b) => naturalCompare(a.name, b.name))
         .map((f) => (
@@ -165,8 +165,10 @@ const BuilderList: React.FC<{ current: PZFolder; update: number }> = memo((props
 const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) => {
   const [t] = useTranslation()
   const { builder } = useContext(BuilderContext)
-  const { openSetNameDialog, openBuildDialog } = useBuilderDialogs()
+  const openSetNameDialog = useSetNamDialog()
+  const { openBuildDialog } = useBuilderDialogs()
   const { openDir, selectFiles } = useIoService()
+  const info = useInfoDialog()
 
   const createFolder = useCallback(() => {
     const sub = openSetNameDialog()
@@ -196,7 +198,13 @@ const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) =>
     })
   }, [builder, current])
   const toBuild = useCallback(() => {
-    openBuildDialog(builder)
+    try {
+      builder.checkEmpty()
+      openBuildDialog(builder)
+    } catch (err) {
+      const msg = (err as Error)?.message ?? 'unknown error'
+      info(msg, t('error'), 'error')
+    }
   }, [builder])
 
   return (

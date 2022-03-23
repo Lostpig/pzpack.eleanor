@@ -7,6 +7,7 @@
   "close": "关闭",
   "theme": "主题",
   "user collection": "用户合集",
+  "password collection": "密码本",
   "help": "帮助",
   "about": "关于",
   "exit": "退出",
@@ -33,6 +34,7 @@
   "create folder": "创建文件夹",
   "add folder": "添加文件夹",
   "add files": "添加文件",
+  "add videos": "添加视频",
   "pack": "打包",
   "rename": "重命名",
   "delete": "删除",
@@ -40,6 +42,10 @@
   "folder name": "文件夹名",
   "file name": "文件名",
   "name cannot be empty": "名称不能为空",
+  "error": "错误",
+  "warning": "警告",
+  "info": "信息",
+  "unknown error": "未知错误",
 
   "description": "描述信息",
   "build": "生成",
@@ -56,5 +62,27 @@
   "file": "文件",
   "complete": "完成",
   "used time": "已用时间",
-  "set name": "输入名称"
+  "set name": "输入名称",
+
+  "pzpack file": "打包文件",
+  "pzvideo file": "视频合集",
+  "video codec": "视频编码器",
+  "audio codec": "音频编码器",
+  "bitrate": "比特率",
+
+  "external player not setted": "未设置外部播放器",
+  "open with external player": "使用外部播放器打开",
+  "builder has not files": "没有添加要打包的文件",
+
+  "build stage": "当前步骤",
+  "ffmpeg stage": "FFMPEG 转码中...",
+  "pzmv build stage": "PZVIDEO 文件打包中...",
+  "clean temp files": "清理临时文件...",
+  "setting": "设置",
+  "select": "选择",
+  "ffmpeg path": "FFMPEG目录",
+  "temp directory": "临时文件夹",
+  "external player": "外部播放器",
+  "save": "保存",
+  "not support codec try to use external player": "不支持的视频格式\r\n尝试使用外部播放器打开"
 }

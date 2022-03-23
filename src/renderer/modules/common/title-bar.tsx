@@ -2,7 +2,16 @@ import React, { useReducer, createContext, useMemo, useContext, type PropsWithCh
 import { useTranslation } from 'react-i18next'
 import { MinimizeIcon, MaximizeIcon, WindowizeIcon, CloseIcon, MenuIcon } from '../icons'
 import { mergeCls } from '../../utils'
-import { useWindowState, useWindowOperate, usePackage, useTheme, usePZInstance, usePZPackService } from './hooks'
+import {
+  useWindowState,
+  useWindowOperate,
+  usePackage,
+  useTheme,
+  usePZInstance,
+  usePZPackService,
+  useConfig,
+} from './hooks'
+import { useSettingDialog } from './setting-dialog'
 import { useOpenFileDialog, useConfirmDialog } from './dialogs'
 
 type TitleBarContext = {
@@ -139,11 +148,13 @@ const TitleMenu = (props: { hidden: boolean }) => {
   const { hidden } = props
   const [t] = useTranslation()
   const { close: closeWindow } = useWindowOperate()
-  const { closePZInstance, openPZBuilder } = usePZPackService()
+  const { closePZInstance, openPZBuilder, openPZMVBuilder } = usePZPackService()
   const instance = usePZInstance()
   const opened = useMemo(() => instance !== undefined, [instance])
+  const { getConfig } = useConfig()
   const openFile = useOpenFileDialog()
   const confirm = useConfirmDialog()
+  const openSettingDialog = useSettingDialog()
   const openBuilder = useCallback(() => {
     if (instance && instance.type !== 'builder') {
       const ob = confirm(t('has opened doc alert'), t('warning'))
@@ -154,6 +165,29 @@ const TitleMenu = (props: { hidden: boolean }) => {
       openPZBuilder()
     }
   }, [instance, confirm, openPZBuilder])
+  const openVideoBuilder = useCallback(() => {
+    if (instance && instance.type !== 'mvbuilder') {
+      const ob = confirm(t('has opened doc alert'), t('warning'))
+      ob.subscribe((ok) => {
+        if (ok === 'ok') openPZMVBuilder()
+      })
+    } else {
+      Promise.all([getConfig('ffmpeg'), getConfig('tempDir')]).then(([p1, p2]) => {
+        let msg
+        if (!p1) msg = t('ffmpeg not set warning')
+        else if (!p2) msg = t('temp directory not set warning')
+
+        if (msg) {
+          const ob = confirm(msg, t('warning'))
+          ob.subscribe((ok) => {
+            if (ok === 'ok') openSettingDialog()
+          })
+        } else {
+          openPZMVBuilder()
+        }
+      })
+    }
+  }, [instance, confirm, openPZMVBuilder, openSettingDialog])
 
   return (
     <div
@@ -164,13 +198,19 @@ const TitleMenu = (props: { hidden: boolean }) => {
       )}
     >
       <TitleMenuItem text={t('open')} onActive={openFile} />
-      <TitleMenuItem text={t('create')} onActive={openBuilder} />
+      <TitleMenuItem text={t('create')}>
+        <SubMenu>
+          <TitleMenuItem text={t('pzpack file')} onActive={openBuilder} />
+          <TitleMenuItem text={t('pzvideo file')} onActive={openVideoBuilder} />
+        </SubMenu>
+      </TitleMenuItem>
       <TitleMenuItem text={t('close')} disabled={!opened} onActive={closePZInstance} />
       <TitleMenuSeparator />
+      <TitleMenuItem text={t('setting')} onActive={openSettingDialog} />
       <TitleMenuItem text={t('theme')}>
         <ThemeSubMenu />
       </TitleMenuItem>
-      <TitleMenuItem text={t('user collection')} />
+      <TitleMenuItem disabled text={t('password collection')} />
       <TitleMenuSeparator />
       <TitleMenuItem disabled text={t('help')} />
       <TitleMenuItem disabled text={t('about')} />

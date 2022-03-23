@@ -1,5 +1,6 @@
 import { app } from 'electron'
-import { registerInvoke } from './ipc'
+import { execFile } from 'node:child_process'
+import { registerInvoke, subscribeChannel } from './ipc'
 import { ROOT, PACKAGE } from './common'
 import { appWindow } from './window'
 import { AppLogger } from './logger'
@@ -16,6 +17,14 @@ const registerInvokes = () => {
   })
   registerInvoke('set:config', (data) => {
     return config.set(data.key, data.value)
+  })
+
+  subscribeChannel('exec::player', (url) => {
+    const exPlayer = config.get('externalPlayer')
+    if (!exPlayer) return
+
+    AppLogger.debug(`launch external player: ${exPlayer} ${url}`)
+    execFile(exPlayer, [url])
   })
 }
 

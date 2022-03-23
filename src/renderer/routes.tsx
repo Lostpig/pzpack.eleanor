@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react'
-import { usePZInstance, WhitePage } from './modules/common'
+import { usePZInstance, WhitePage, ErrorPage } from './modules/common'
 import { PZFileExplorer } from './modules/pzpk-explorer'
 import { PZVideoExplorer } from './modules/pzmv-explorer'
 import { PZPackBuilder } from './modules/pzpk-builder'
+import { PZMVBuilder } from './modules/pzmv-builder'
 
 export const RoutesContainer = () => {
   const instance = usePZInstance()
@@ -11,8 +12,9 @@ export const RoutesContainer = () => {
     if (instance.type === 'loader') return <PZFileExplorer loader={instance.binding} />
     if (instance.type === 'mvloader') return <PZVideoExplorer server={instance.binding} />
     if (instance.type === 'builder') return <PZPackBuilder builder={instance.binding} />
+    if (instance.type === 'mvbuilder') return <PZMVBuilder builder={instance.binding} />
 
-    return <span>${instance.type}</span>
+    return <ErrorPage />
   }, [instance?.type, instance?.binding])
 
   return <div className="flex-1 overflow-hidden">

@@ -1,20 +1,32 @@
-import React, { useContext, useEffect, useRef } from 'react'
+import React, { useCallback, useContext, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { PZVideo, PZFolder } from 'pzpack'
 import { MediaPlayer } from 'dashjs'
-import { ModalContext, useModalManager } from '../common'
+import { ModalContext, useModalManager, useExternalPlayer, useInfoDialog } from '../common'
 import { PZButton } from '../shared'
 import { CloseLargeIcon } from '../icons'
 
 export const VideoPlayer: React.FC<{ server: PZVideo.PZMVSimpleServer; video: PZFolder }> = ({ server, video }) => {
+  const [t] = useTranslation()
   const ref = useRef<HTMLVideoElement>(null)
   const { id } = useContext(ModalContext)
   const { closeModal } = useModalManager()
+  const info = useInfoDialog()
+  const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
 
   useEffect(() => {
     if (!server.running) server.start()
     if (ref.current) {
       const url = `http://localhost:${server.port}/${video.id}/play.mpd`
       const player = MediaPlayer().create()
+
+      let errorShowed = false
+      player.on('error', () => {
+        if (errorShowed) return
+        info(t('not support codec try to use external player'), t('warning'), 'warning')
+        player.pause()
+        errorShowed = true
+      })
       player.initialize(ref.current, url, true)
 
       return () => {
@@ -23,6 +35,17 @@ export const VideoPlayer: React.FC<{ server: PZVideo.PZMVSimpleServer; video: PZ
     }
     return () => {}
   }, [ref.current, server, video])
+  const openExPlayer = useCallback(() => {
+    checkExternalPlayer().then((exists) => {
+      if (exists) {
+        const url = `http://localhost:${server.port}/${video.id}/play.mpd`
+        openExternalPlayer(url)
+        if (ref.current) ref.current.pause()
+      } else {
+        info(t('external player not setted'), t('warning'), 'warning')
+      }
+    })
+  },[checkExternalPlayer, openExternalPlayer, ref.current])
 
   return (
     <div className="absolute top-0 left-0 w-screen h-screen bg-white dark:bg-neutral-700">
@@ -34,8 +57,15 @@ export const VideoPlayer: React.FC<{ server: PZVideo.PZMVSimpleServer; video: PZ
           </PZButton>
         </div>
       </header>
-      <div className="w-full h-full overflow-hidden flex justify-center items-center">
-        <video className="max-h-full max-w-full" ref={ref} controls></video>
+      <div className="w-full h-full flex flex-col overflow-hidden items-center">
+        <div className="flex-1 flex items-center justify-center" style={({ height: 'calc(100% - 10rem)' })}>
+          <video className="max-h-full max-w-full" ref={ref} controls></video>
+        </div>
+        <div className="flex h-8 items-center">
+          <PZButton type="link" onClick={openExPlayer}>
+            {t('open with external player')}
+          </PZButton>
+        </div>
       </div>
     </div>
   )

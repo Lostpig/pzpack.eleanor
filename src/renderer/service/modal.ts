@@ -1,4 +1,5 @@
 import { PZSubscription } from 'pzpack'
+import { nextTick } from '../../lib/utils'
 import { RendererLogger } from './logger'
 
 export type ModalContent = {
@@ -14,17 +15,26 @@ const keyCounter = (() => {
   return () => i++
 })()
 
+let modalChangingFlag = false
 const modalHandleStore = new Map<number, PZSubscription.PZNotify<string | undefined>>()
+
+const execOpenModal = (key: number, element: React.ReactElement, handle: PZSubscription.PZNotify<string | undefined>) => {
+  modalChangingFlag = true
+  const state = modalStateNotify.current
+  modalStateNotify.next({ contents: [...state.contents, { key, element }] })
+  modalHandleStore.set(key, handle)
+  modalChangingFlag = false
+}
 export const openModal = (element: React.ReactElement) => {
   const key = keyCounter()
-  const state = modalStateNotify.current
-
   const modalHandle = new PZSubscription.PZNotify<string | undefined>()
-  modalHandleStore.set(key, modalHandle)
-  modalStateNotify.next({ contents: [...state.contents, { key, element }] })
+  if (modalChangingFlag) nextTick().then(() => execOpenModal(key, element, modalHandle))
+  else execOpenModal(key, element, modalHandle)
+
   return modalHandle.asObservable()
 }
 export const closeModal = (key: number, result?: string) => {
+  modalChangingFlag = true
   const state = modalStateNotify.current
   let removed: ModalContent | undefined
   const remains: ModalContent[] = []
@@ -42,6 +52,7 @@ export const closeModal = (key: number, result?: string) => {
     RendererLogger.warning(`close modal id = "${key}" not found`)
   }
   modalStateNotify.next({ contents: remains })
+  modalChangingFlag = false
 }
 
 export const modalObservable = modalStateNotify.asObservable()

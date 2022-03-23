@@ -1,4 +1,5 @@
 import { OpenPzFile, PZSubscription, PZVideo, type PZLoader, PZIndexBuilder, PZBuilder } from 'pzpack'
+import { getConfig } from './config'
 import { RendererLogger } from './logger'
 
 type OpenPZLoaderResult = {
@@ -7,7 +8,7 @@ type OpenPZLoaderResult = {
 }
 interface PZInstanceBase {
   type: 'builder' | 'mvbuilder' | 'loader' | 'mvloader'
-  binding: PZIndexBuilder | PZLoader | PZVideo.PZMVBuilder | PZVideo.PZMVSimpleServer
+  binding: PZIndexBuilder | PZLoader | PZVideo.PZMVIndexBuilder | PZVideo.PZMVSimpleServer
 }
 interface PZBuilderInstance extends PZInstanceBase {
   type: 'builder'
@@ -15,7 +16,7 @@ interface PZBuilderInstance extends PZInstanceBase {
 }
 interface PZMVBuilderInstance extends PZInstanceBase {
   type: 'mvbuilder'
-  binding: PZVideo.PZMVBuilder
+  binding: PZVideo.PZMVIndexBuilder
 }
 interface PZLoaderInstance extends PZInstanceBase {
   type: 'loader'
@@ -92,6 +93,26 @@ export const startPZBuild = (indexBuilder: PZIndexBuilder, target: string, descr
     password
   })
   builder.setDescription(description)
+  const task = builder.buildTo(target)
+  return task
+}
+
+export const openPZMVBuilder = () => {
+  const instance = PZInstanceNotify.current
+  if (instance && instance.type === 'mvbuilder') return
+  if (instance) closeInstance(instance)
+
+  const mvIndexBuilder = new PZVideo.PZMVIndexBuilder()
+  PZInstanceNotify.next({ type: 'mvbuilder', binding: mvIndexBuilder })
+}
+export const startPZMVBuild = async (target: string, options: Omit<PZVideo.PZMVBuilderOptions, 'ffmpegDir' | 'tempDir'>) => {
+  const ffmpegDir = await getConfig('ffmpeg')
+  const tempDir = await getConfig('tempDir')
+
+  if (!ffmpegDir) throw new Error('ffmpeg not setted')
+  if (!tempDir) throw new Error('temp directory not setted')
+  
+  const builder = new PZVideo.PZMVBuilder(Object.assign(options, { ffmpegDir, tempDir }))
   const task = builder.buildTo(target)
   return task
 }

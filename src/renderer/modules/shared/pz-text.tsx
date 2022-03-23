@@ -3,9 +3,12 @@ import { mergeCls } from '../../utils'
 
 export type PZTextProps = {
   value?: string
+  binding?: string
+  readonly?: boolean
   onChange?: (value: string) => void
   onEnter?: () => void
   className?: string
+  type?: 'text' | 'number'
 }
 export type PZTextRef = {
   focus: () => void
@@ -40,8 +43,10 @@ export const PZText = forwardRef((props: PZTextProps, ref: ForwardedRef<PZTextRe
       <input
         ref={inputRef}
         defaultValue={props.value}
+        value={props.binding}
+        readOnly={props.readonly}
         className="flex-1 focus:outline-none bg-transparent"
-        type="text"
+        type={props.type ?? 'text'}
         onChange={changeHandler}
         onKeyPress={enterHandler}
       />

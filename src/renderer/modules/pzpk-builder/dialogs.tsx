@@ -6,53 +6,6 @@ import { useModalManager, ModalContext, DialogBase, useIoService, useInfoDialog 
 import { PZText, PZButton, PZPassword, PZProgress } from '../shared'
 import { useBuilder } from './hooks'
 
-export type SetNameDialogProps = {
-  caption?: string
-  orgName?: string
-}
-const SetNameDialog = (props: SetNameDialogProps) => {
-  const [t] = useTranslation()
-  const [msg, setMsg] = useState('')
-  const { closeModal } = useModalManager()
-  const { id } = useContext(ModalContext)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-  const closeHandler = useCallback(
-    (ok: boolean) => {
-      const folderName = inputRef.current?.value.trim() ?? ''
-      if (ok && (!folderName || folderName.length === 0)) return setMsg(t('name cannot be empty'))
-
-      closeModal(id, folderName)
-    },
-    [id, setMsg, inputRef.current],
-  )
-
-  return (
-    <DialogBase>
-      <div className="flex flex-col">
-        <div className="mt-1 mb-3">
-          <label className="w-16 mr-6 text-right font-bold">{props.caption ?? t('set name')}</label>
-        </div>
-        <div className="mb-4 flex flex-row items-center">
-          <PZText ref={inputRef} className="flex-1" value={props.orgName ?? ''} onEnter={() => closeHandler(true)} />
-        </div>
-        <div className={mergeCls('mb-4 text-right', msg ? 'block' : 'hidden')}>
-          <span className="text-red-600">{msg}</span>
-        </div>
-        <div className="flex flex-row justify-end">
-          <PZButton type="primary" onClick={() => closeHandler(true)}>
-            {t('ok')}
-          </PZButton>
-          <PZButton onClick={() => closeHandler(false)}>{t('cancel')}</PZButton>
-        </div>
-      </div>
-    </DialogBase>
-  )
-}
-
 type BuildingDialogProps = {
   start: number
   task: PZTask.AsyncTask<BuildProgress>
@@ -211,18 +164,12 @@ const ToBuildDialog = memo((props: ToBuildDialogProps) => {
 
 export const useBuilderDialogs = () => {
   const { openModal } = useModalManager()
-
-  const openSetNameDialog = useCallback(
-    (orgName?: string, caption?: string) => openModal(<SetNameDialog orgName={orgName} caption={caption} />),
-    [openModal],
-  )
   const openBuildDialog = useCallback(
     (indexBuilder: PZIndexBuilder) => openModal(<ToBuildDialog indexBuilder={indexBuilder} />),
     [openModal],
   )
 
   return {
-    openSetNameDialog,
     openBuildDialog,
   }
 }

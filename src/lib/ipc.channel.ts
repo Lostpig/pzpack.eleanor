@@ -1,3 +1,4 @@
+import type { PZTypes } from 'pzpack'
 import type { ConfigKey, ConfigValue, PackageInfo, Theme } from './declares'
 
 interface IPCChannelDeclareMap {
@@ -7,6 +8,7 @@ interface IPCChannelDeclareMap {
   'renderer::ready': null
   'theme::set': Theme
   'theme::setted': Theme
+  'exec::player': string
   'dev::cssreload': null
 }
 
@@ -19,11 +21,11 @@ interface IPCInvokeDeclareMap {
   'req:root': [undefined, string]
   'req:config': [ConfigKey, ConfigValue<ConfigKey>]
   'req:package': [void, PackageInfo]
-  'req:theme': [void, 'light' | 'dark' | 'system']
+  'req:theme': [void, Theme]
   'set:config': [{ key: ConfigKey; value: ConfigValue<ConfigKey> }, void],
-  'fd:open': [void, string]
-  'fd:select': [void, string[]]
-  'fd:save': [void, string]
+  'fd:open': [Electron.FileFilter[] | undefined, string]
+  'fd:select': [Electron.FileFilter[] | undefined, string[]]
+  'fd:save': [PZTypes, string]
   'fd:dir': [void, string]
   'req:dev': [void, boolean]
 }

@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { FirstLetterUpper } from '../../utils'
 import type { PackageInfo, Theme } from '../../../lib/declares'
-import { openFile, saveFile, openDir, selectFiles } from '../../service/io'
+import { openFile, saveFile, openDir, selectFiles, selectVideos, saveVideo } from '../../service/io'
 import { modalObservable, openModal, closeModal } from '../../service/modal'
-import { openPZloader, closePZInstance, openPZBuilder, PZInstanceObservable, type PZInstance } from '../../service/pzpack'
+import { setConfig, getConfig, checkFfmpeg, checkExternalPalyer } from '../../service/config'
+import {
+  openPZloader,
+  closePZInstance,
+  openPZBuilder,
+  openPZMVBuilder,
+  PZInstanceObservable,
+  type PZInstance,
+} from '../../service/pzpack'
 import { subscribeChannel, sendToChannel, invokeIpc } from '../../service/ipc'
 
 export const useNavigate = () => {
@@ -18,7 +26,7 @@ export const useNavigate = () => {
 }
 export const useIoService = () => {
   return useMemo(() => {
-    return { openFile, saveFile, openDir, selectFiles }
+    return { openFile, saveFile, openDir, selectFiles, selectVideos, saveVideo }
   }, [])
 }
 
@@ -51,7 +59,7 @@ export const usePZInstance = () => {
 }
 export const usePZPackService = () => {
   return useMemo(() => {
-    return { openPZloader, closePZInstance, openPZBuilder }
+    return { openPZloader, closePZInstance, openPZBuilder, openPZMVBuilder }
   }, [])
 }
 
@@ -106,4 +114,22 @@ export const useTheme = (): [string, (theme: Theme) => void] => {
   }
 
   return [theme, changeTheme]
+}
+
+export const useConfig = () => {
+  return useMemo(() => {
+    return { setConfig, getConfig, checkFfmpeg, checkExternalPalyer }
+  }, [])
+}
+export const useExternalPlayer = () => {
+  const openExternalPlayer = useCallback((url: string) => {
+    sendToChannel('exec::player', url)
+  }, [])
+  const checkExternalPlayer = useCallback(() => {
+    return getConfig('externalPlayer').then((val) => {
+      return !!val
+    })
+  }, [])
+
+  return { openExternalPlayer, checkExternalPlayer }
 }

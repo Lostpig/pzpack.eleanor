@@ -13,8 +13,6 @@ export const WhitePage: React.FC = () => {
       <div>
         <span>{t('to open a file')}</span>
         <PZButton onClick={openHandler}>{t('open')}</PZButton>
-        <span>{t('or create a new pack')}</span>
-        <PZButton>{t('create')}</PZButton>
       </div>
     </div>
   )
