@@ -39,13 +39,13 @@ export const VideoPlayer: React.FC<{ server: PZVideo.PZMVSimpleServer; video: PZ
     checkExternalPlayer().then((exists) => {
       if (exists) {
         const url = `http://localhost:${server.port}/${video.id}/play.mpd`
-        openExternalPlayer(url)
+        openExternalPlayer(url, server)
         if (ref.current) ref.current.pause()
       } else {
         info(t('external player not setted'), t('warning'), 'warning')
       }
     })
-  },[checkExternalPlayer, openExternalPlayer, ref.current])
+  },[checkExternalPlayer, openExternalPlayer, server, video, ref.current])
 
   return (
     <div className="absolute top-0 left-0 w-screen h-screen bg-white dark:bg-neutral-700">

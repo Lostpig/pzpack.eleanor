@@ -14,3 +14,30 @@ export const nextTick = () => {
     })
   })
 }
+
+type LazyFactory<T> = () => T
+type LazyValue<T> = {
+  value: T
+}
+
+function lazyValue<T>(factory: LazyFactory<T>, readonly: true): Readonly<LazyValue<T>>
+function lazyValue<T>(factory: LazyFactory<T>, readonly?: false): LazyValue<T>
+function lazyValue<T>(factory: LazyFactory<T>, readonly?: boolean) {
+  const instance = Object.create({})
+  let innerValue: T
+
+  Object.defineProperties(instance, {
+    value: {
+      get () {
+        if (innerValue === undefined) innerValue = factory()
+        return innerValue
+      },
+      set (value) {
+        innerValue = value
+      },
+      writable: !readonly
+    }
+  })
+  return instance
+}
+export { lazyValue }

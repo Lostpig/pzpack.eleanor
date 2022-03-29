@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { AppLogger } from './logger'
 import { ROOT } from './common'
-import { ConfigSet } from '../lib/declares'
+import type { ConfigSet } from '../lib/declares'
 import { ensureFileDirAsync, readJson, writeJsonAsync, ensureFileDir, writeJson } from '../lib/io'
 import { wait } from '../lib/utils'
 

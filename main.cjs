@@ -1,1 +1,1 @@
-require("./dist/main.js")
+require("./build/main.js")

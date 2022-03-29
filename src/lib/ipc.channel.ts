@@ -19,6 +19,7 @@ export type ChHandler<C extends Channel> = (data: ChData<C>) => void
 
 interface IPCInvokeDeclareMap {
   'req:root': [undefined, string]
+  'req:resource': [undefined, string]
   'req:config': [ConfigKey, ConfigValue<ConfigKey>]
   'req:package': [void, PackageInfo]
   'req:theme': [void, Theme]

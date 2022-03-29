@@ -19,6 +19,8 @@ let modalChangingFlag = false
 const modalHandleStore = new Map<number, PZSubscription.PZNotify<string | undefined>>()
 
 const execOpenModal = (key: number, element: React.ReactElement, handle: PZSubscription.PZNotify<string | undefined>) => {
+  if (modalChangingFlag) nextTick().then(() => execOpenModal(key, element, handle))
+
   modalChangingFlag = true
   const state = modalStateNotify.current
   modalStateNotify.next({ contents: [...state.contents, { key, element }] })
@@ -28,9 +30,7 @@ const execOpenModal = (key: number, element: React.ReactElement, handle: PZSubsc
 export const openModal = (element: React.ReactElement) => {
   const key = keyCounter()
   const modalHandle = new PZSubscription.PZNotify<string | undefined>()
-  if (modalChangingFlag) nextTick().then(() => execOpenModal(key, element, modalHandle))
-  else execOpenModal(key, element, modalHandle)
-
+  execOpenModal(key, element, modalHandle)
   return modalHandle.asObservable()
 }
 export const closeModal = (key: number, result?: string) => {

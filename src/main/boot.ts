@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { execFile } from 'node:child_process'
 import { registerInvoke, subscribeChannel } from './ipc'
-import { ROOT, PACKAGE } from './common'
+import { ROOT, RESOURCE, PACKAGE } from './common'
 import { appWindow } from './window'
 import { AppLogger } from './logger'
 import { config } from './config'
@@ -11,6 +11,7 @@ import { initializeDevMode } from './dev'
 
 const registerInvokes = () => {
   registerInvoke('req:root', () => ROOT)
+  registerInvoke('req:resource', () => RESOURCE)
   registerInvoke('req:package', () => PACKAGE)
   registerInvoke('req:config', (key) => {
     return config.get(key)

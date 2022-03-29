@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import type { PZVideo } from 'pzpack'
 import { FirstLetterUpper } from '../../utils'
 import type { PackageInfo, Theme } from '../../../lib/declares'
 import { openFile, saveFile, openDir, selectFiles, selectVideos, saveVideo } from '../../service/io'
@@ -122,7 +123,8 @@ export const useConfig = () => {
   }, [])
 }
 export const useExternalPlayer = () => {
-  const openExternalPlayer = useCallback((url: string) => {
+  const openExternalPlayer = useCallback((url: string, server: PZVideo.PZMVSimpleServer) => {
+    if (!server.running) server.start()
     sendToChannel('exec::player', url)
   }, [])
   const checkExternalPlayer = useCallback(() => {

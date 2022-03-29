@@ -1,9 +1,12 @@
-import { app } from 'electron'
 import * as path from 'path'
-import { PackageInfo } from '../lib/declares'
+import { app } from 'electron'
+import type { PackageInfo } from '../lib/declares'
 
-export const ROOT = app.getAppPath()
-export const PACKAGE = require(path.join(ROOT, 'package.json')) as PackageInfo
-export const EntryPage = `file://${ROOT}/index.html`
+const isDevMode = process.argv.indexOf('--dev') >= 1
+
+export const ROOT = isDevMode ? app.getAppPath() : path.dirname(process.execPath)
+export const RESOURCE = app.getAppPath()
+export const PACKAGE = require(path.join(RESOURCE, 'package.json')) as PackageInfo
+export const EntryPage = `file://${RESOURCE}/index.html`
 
 

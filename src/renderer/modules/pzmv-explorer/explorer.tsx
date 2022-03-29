@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next'
 import type { PZFolder, PZVideo } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
 import { FiletypeIcon } from '../icons'
-import { useModalManager } from '../common'
+import { useModalManager, useExternalPlayer, useInfoDialog } from '../common'
 import { formatSize, formatTime, parseVideoTime } from '../../utils'
 import { VideoPlayer } from './video-player'
+import { PZButton } from '../shared'
 
 type ExplorerContextType = {
   openVideoPlayer: (video: PZFolder) => void
@@ -16,15 +17,28 @@ const ExplorerInfoSeparator = () => {
   return <div className="mx-3 w-px h-4/5 bg-neutral-400"></div>
 }
 const ExolorerVideo: React.FC<{ server: PZVideo.PZMVSimpleServer; folder: PZFolder }> = memo(({ server, folder }) => {
+  const [t] = useTranslation()
   const [time, setTime] = useState(formatTime(0))
   const { openVideoPlayer } = useContext(ExplorerContext)
+  const info = useInfoDialog()
+  const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
   const openVideo = useCallback(() => {
     openVideoPlayer(folder)
   }, [openVideoPlayer])
+  const openExPlayer = useCallback(() => {
+    checkExternalPlayer().then((exists) => {
+      if (exists) {
+        const url = `http://localhost:${server.port}/${folder.id}/play.mpd`
+        openExternalPlayer(url, server)
+      } else {
+        info(t('external player not setted'), t('warning'), 'warning')
+      }
+    })
+  },[checkExternalPlayer, openExternalPlayer, server, folder])
 
   useEffect(() => {
-    parseVideoTime(server.loader, folder).then((t) => {
-      setTime(formatTime(t))
+    parseVideoTime(server.loader, folder).then((vtime) => {
+      setTime(formatTime(vtime))
     })
   }, [server, folder.id])
 
@@ -35,6 +49,9 @@ const ExolorerVideo: React.FC<{ server: PZVideo.PZMVSimpleServer; folder: PZFold
     >
       <FiletypeIcon type={'.mp4'} size={20} />
       <div className="flex-1 text-ellipsis pl-4 overflow-hidden whitespace-nowrap">{folder.name}</div>
+      <div className="text-right w-32 pr-4">
+        <PZButton type='link' onClick={openExPlayer}>{t('play')}</PZButton>
+      </div>
       <div className="text-right w-32 pr-4">{time}</div>
     </div>
   )

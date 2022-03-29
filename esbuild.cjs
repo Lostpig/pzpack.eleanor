@@ -6,7 +6,7 @@ const optionsBase = {
     main: './src/main/boot.ts',
     renderer: './src/renderer/entry.tsx'
   },
-  outdir: './dist',
+  outdir: './build',
   bundle: true,
   sourcemap: true,
   platform: 'node',
@@ -39,7 +39,9 @@ const execute = () => {
   }
   if (argv.indexOf('--prod') > 1) {
     console.log('build for prod')
+    optionsBase.define = { 'process.env.NODE_ENV': "'production'" }
     optionsBase.minify = true
+    optionsBase.external = ['electron', 'electron/*', './lib-cov/fluent-ffmpeg']
   }
 
   return doBuild(optionsBase)
