@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import type { PZVideo } from 'pzpack'
 import { FirstLetterUpper } from '../../utils'
 import type { PackageInfo, Theme } from '../../../lib/declares'
+import { getInfo } from '../../service/global'
 import { openFile, saveFile, openDir, selectFiles, selectVideos, saveVideo } from '../../service/io'
 import { modalObservable, openModal, closeModal } from '../../service/modal'
 import { setConfig, getConfig, checkFfmpeg, checkExternalPalyer } from '../../service/config'
@@ -67,7 +67,10 @@ export const usePZPackService = () => {
 export const useWindowState = () => {
   const [maximize, setMaximize] = useState(false)
   useEffect(() => {
-    const subscription = subscribeChannel('window::changed', (v) => {
+    invokeIpc('application:inited', undefined).then(p => {
+      setMaximize(p.maximize)
+    })
+    const subscription = subscribeChannel('window:changed', (v) => {
       if (v === 'maximize') {
         setMaximize(true)
       } else if (v === 'unmaximize') {
@@ -77,41 +80,39 @@ export const useWindowState = () => {
     return () => subscription.unsubscribe()
   }, [])
   const toggleMaximize = useCallback(() => {
-    sendToChannel('window::operate', 'maximize')
+    sendToChannel('window:operate', 'maximize')
   }, [])
 
   return [maximize, toggleMaximize] as [boolean, () => void]
 }
 export const useWindowOperate = () => {
   const close = useCallback(() => {
-    sendToChannel('window::operate', 'close')
+    sendToChannel('window:operate', 'close')
   }, [])
   const minimize = useCallback(() => {
-    sendToChannel('window::operate', 'minimize')
+    sendToChannel('window:operate', 'minimize')
   }, [])
 
   return { close, minimize }
 }
 
 export const usePackage = () => {
-  const [pkg, setPkg] = useState<PackageInfo>()
-  useEffect(() => {
-    invokeIpc('req:package', undefined).then((val) => {
-      val.name = FirstLetterUpper(val.name)
-      setPkg(val)
-    })
+  const pkg: PackageInfo = useMemo(() => {
+    const globalInfo = getInfo()
+    return { ...globalInfo.pkgInfo, name: FirstLetterUpper(globalInfo.pkgInfo.name) }
   }, [])
-
   return pkg
 }
 export const useTheme = (): [string, (theme: Theme) => void] => {
   const [theme, setTheme] = useState('system')
   useEffect(() => {
-    invokeIpc('req:theme', undefined).then(setTheme)
-    subscribeChannel('theme::setted', setTheme)
+    invokeIpc('theme:get', undefined).then(setTheme)
+    const subscription = subscribeChannel('theme:changed', setTheme)
+
+    return () => subscription.unsubscribe()
   }, [])
   const changeTheme = (val: Theme) => {
-    sendToChannel('theme::set', val)
+    invokeIpc('theme:set', val)
   }
 
   return [theme, changeTheme]
@@ -123,9 +124,8 @@ export const useConfig = () => {
   }, [])
 }
 export const useExternalPlayer = () => {
-  const openExternalPlayer = useCallback((url: string, server: PZVideo.PZMVSimpleServer) => {
-    if (!server.running) server.start()
-    sendToChannel('exec::player', url)
+  const openExternalPlayer = useCallback((url: string) => {
+    sendToChannel('exec:explayer', { url })
   }, [])
   const checkExternalPlayer = useCallback(() => {
     return getConfig('externalPlayer').then((val) => {

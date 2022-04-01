@@ -15,6 +15,23 @@ export const nextTick = () => {
   })
 }
 
+export const formatTime = (timeSeconds: number) => {
+  const hours = Math.trunc(timeSeconds / 3600)
+  const minutes = Math.trunc(timeSeconds / 60) % 60
+  const seconds = Math.trunc(timeSeconds) % 60
+
+  const f2 = (s: number) => {
+    return ('00' + s.toString()).slice(-2)
+  }
+
+  return `${f2(hours)}:${f2(minutes)}:${f2(seconds)}`
+}
+
+export const createUrl = (port: number, pid: number, filename: string) => {
+  const p = encodeURI(`${pid}/${filename}`)
+  return `http://localhost:${port}/${p}`
+}
+
 type LazyFactory<T> = () => T
 type LazyValue<T> = {
   value: T

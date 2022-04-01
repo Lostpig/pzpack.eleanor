@@ -2,8 +2,8 @@ import { BrowserWindow, app } from 'electron'
 import { AppLogger } from './logger'
 import { EntryPage } from './common'
 import { config } from './config'
-import type { ChData } from '../lib/ipc.channel'
-import { registerMainWindow, subscribeChannel, sendToChannel } from './ipc'
+import type { MainChannelData } from '../../lib/ipc.channel'
+import { registerMainWindow, getReceiver, getSender } from './ipc'
 
 let singleInstance: WindowManager
 class WindowManager {
@@ -96,30 +96,31 @@ class WindowManager {
   private initWindowOperate() {
     registerMainWindow(this.main!)
 
-    const operates: Record<ChData<'window::operate'>, () => void> = {
+    const operates: Record<MainChannelData<'window:operate'>, () => void> = {
       close: () => this.close(),
       hidden: () => this.hide(),
       maximize: () => this.toggleMaximize(),
       minimize: () => this.window?.minimize(),
       visibility: () => this.toggleVisibility(),
     }
-    subscribeChannel('window::operate', (p) => {
+    getReceiver('window:operate').subscribe((p) => {
       operates[p]()
     })
+    const sender = getSender('window:changed')
 
     this.window?.on('minimize', () => {
-      sendToChannel('window::changed', 'minimize')
+      sender.send('minimize')
     })
     this.window?.on('maximize', () => {
       config.set('maximizi', true)
-      sendToChannel('window::changed', 'maximize')
+      sender.send('maximize')
     })
     this.window?.on('unmaximize', () => {
       config.set('maximizi', false)
-      sendToChannel('window::changed', 'unmaximize')
+      sender.send('unmaximize')
     })
     this.window?.on('restore', () => {
-      sendToChannel('window::changed', 'restore')
+      sender.send('restore')
     })
   }
 

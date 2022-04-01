@@ -1,5 +1,6 @@
-import { subscribeChannel, invokeIpc } from './ipc'
-import { RendererLogger, PZDefaultLogger, LogLevel } from './logger'
+import { subscribeChannel } from './ipc'
+import { getInfo } from './global'
+import { RendererLogger, LogLevel } from './logger'
 
 const reloadCss = () => {
   const cssLink = document.getElementById('index-css') as HTMLLinkElement
@@ -9,18 +10,15 @@ const reloadCss = () => {
 }
 
 export const initDevMode = async () => {
-  const isDev = await invokeIpc('req:dev', undefined)
-  if (isDev) {
-    subscribeChannel('dev::cssreload', reloadCss)
-
+  const info = getInfo()
+  if (info.appInfo.DEV) {
+    subscribeChannel('dev:reloadcss', reloadCss)
+  }
+  if (info.appInfo.DEV || info.appInfo.DEBUG) {
     RendererLogger.consoleLevel = LogLevel.DEBUG
     RendererLogger.fileLevel = LogLevel.ERROR
-    PZDefaultLogger.consoleLevel = LogLevel.DEBUG
-    PZDefaultLogger.fileLevel = LogLevel.ERROR
   } else {
-    RendererLogger.consoleLevel = LogLevel.WARNING
+    RendererLogger.consoleLevel = LogLevel.SILENT
     RendererLogger.fileLevel = LogLevel.ERROR
-    PZDefaultLogger.consoleLevel = LogLevel.WARNING
-    PZDefaultLogger.fileLevel = LogLevel.ERROR
   }
 }

@@ -1,29 +1,28 @@
 import { dialog } from 'electron'
-import { registerInvoke } from './ipc'
+import { registerInvoke, unregisterInvoke } from '../utils/ipc'
 
-export const initializeDialog = () => {
-  registerInvoke('fd:open', (filters?) => {
+const register = () => {
+  registerInvoke('operate:openfile', (filters?) => {
     const appendFilters = filters ?? []
-
+  
     const f = dialog.showOpenDialogSync({
       filters: [...appendFilters, { name: 'All Files', extensions: ['*'] }],
       properties: ['openFile', 'showHiddenFiles'],
     })
-
+  
     return f?.[0] ?? ''
   })
-  registerInvoke('fd:select', (filters?) => {
+  registerInvoke('operate:openfilemulti', (filters?) => {
     const appendFilters = filters ?? []
-
+  
     const f = dialog.showOpenDialogSync({
       filters: [...appendFilters, { name: 'All Files', extensions: ['*'] }],
       properties: ['openFile', 'multiSelections', 'showHiddenFiles'],
     })
-
+  
     return f ?? []
   })
-
-  registerInvoke('fd:save', (type) => {
+  registerInvoke('operate:savefile', (type) => {
     const f = dialog.showSaveDialogSync({
       filters: [
         { name: type, extensions: [type === 'PZPACK' ? 'pzpk' : 'pzmv'] },
@@ -31,15 +30,25 @@ export const initializeDialog = () => {
       ],
       properties: ['showHiddenFiles'],
     })
-
+  
     return f ?? ''
   })
-
-  registerInvoke('fd:dir', () => {
+  registerInvoke('operate:openfolder', () => {
     const f = dialog.showOpenDialogSync({
       properties: ['openDirectory', 'promptToCreate', 'showHiddenFiles'],
     })
-
+  
     return f?.[0] ?? ''
   })
+}
+const unregister = () => {
+  unregisterInvoke('operate:openfile')
+  unregisterInvoke('operate:openfilemulti')
+  unregisterInvoke('operate:savefile')
+  unregisterInvoke('operate:openfolder')
+}
+
+export {
+  register,
+  unregister
 }

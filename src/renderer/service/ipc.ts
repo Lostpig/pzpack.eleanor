@@ -1,6 +1,15 @@
 import { PZSubscription } from 'pzpack'
 import { ipcRenderer } from 'electron/renderer'
-import { Channel, ChPayload, ChHandler, ChData, InvokeRet, InvokeChannel, InvokeArg } from '../../lib/ipc.channel'
+import type {
+  InvokeRet,
+  InvokeChannel,
+  InvokeArg,
+  MainChannelKeys,
+  MainChannelData,
+  RendererChannelHandler,
+  RendererChannelData,
+  RendererChannelKeys,
+} from '../../lib/ipc.channel'
 import { RendererLogger } from './logger'
 
 const receiverMap = new Map<string, PZSubscription.PZNotify<any>>()
@@ -13,30 +22,26 @@ const getReceiver = (key: string) => {
 
   return receiver
 }
-const sender = new PZSubscription.PZNotify<ChPayload>()
 
-const subscribeChannel = <T extends Channel>(channel: T, handler: ChHandler<T>) => {
+type ReceiverPayload<C extends RendererChannelKeys> = { channel: C; data: RendererChannelData<C> }
+type SenderPayload<C extends MainChannelKeys> = { channel: C; data: MainChannelData<C> }
+const sender = new PZSubscription.PZNotify<SenderPayload<any>>()
+
+const subscribeChannel = <T extends RendererChannelKeys>(channel: T, handler: RendererChannelHandler<T>) => {
   const receiver = getReceiver(channel)
   return receiver.subscribe(handler)
 }
-const sendToChannel = <T extends Channel>(channel: T, data: ChData<T>) => {
+const sendToChannel = <T extends MainChannelKeys>(channel: T, data: MainChannelData<T>) => {
   sender.next({ channel, data })
 }
-const rendererReady = () => {
-  sendToChannel('renderer::ready', null)
-}
+
 const invokeIpc = <T extends InvokeChannel>(channel: T, arg: InvokeArg<T>): Promise<InvokeRet<T>> => {
   return ipcRenderer.invoke(channel, arg)
 }
 
-export {
-  subscribeChannel,
-  sendToChannel,
-  rendererReady,
-  invokeIpc
-}
+export { subscribeChannel, sendToChannel, invokeIpc }
 export const initIpc = () => {
-  ipcRenderer.on('renderer-message', (ev, payload: ChPayload) => {
+  ipcRenderer.on('renderer-message', (ev, payload: ReceiverPayload<any>) => {
     RendererLogger.debug(`ipc receive from [${payload.channel}]: ${payload.data}`)
     getReceiver(payload.channel).next(payload.data)
   })
@@ -46,5 +51,3 @@ export const initIpc = () => {
     ipcRenderer.send(payload.channel, payload.data)
   })
 }
-
-

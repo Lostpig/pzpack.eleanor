@@ -2,9 +2,9 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { AppLogger } from './logger'
 import { ROOT } from './common'
-import type { ConfigSet } from '../lib/declares'
-import { ensureFileDirAsync, readJson, writeJsonAsync, ensureFileDir, writeJson } from '../lib/io'
-import { wait } from '../lib/utils'
+import type { ConfigSet } from '../../lib/declares'
+import { ensureFileDirAsync, readJson, writeJsonAsync, ensureFileDir, writeJson } from '../../lib/io'
+import { wait } from '../../lib/utils'
 
 const configPath = path.join(ROOT, 'data', 'config.json')
 class ConfigManager {

@@ -1,14 +1,17 @@
 import React, { useState, useContext, useRef, useEffect, useCallback, memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { PZIndexBuilder, PZTask, BuildProgress } from 'pzpack'
-import { formatSize, mergeCls, formatTime } from '../../utils'
+import type { PZIndexBuilder, BuildProgress } from 'pzpack'
+
+import { mergeCls, formatTime } from '../../utils'
 import { useModalManager, ModalContext, DialogBase, useIoService, useInfoDialog } from '../common'
 import { PZText, PZButton, PZPassword, PZProgress } from '../shared'
 import { useBuilder } from './hooks'
+import type { IPCTask } from '../../service/pzpack'
+import { RendererLogger } from '../../service/logger'
 
 type BuildingDialogProps = {
   start: number
-  task: PZTask.AsyncTask<BuildProgress>
+  task: IPCTask<BuildProgress>
 }
 const BuildingDialog = (props: BuildingDialogProps) => {
   const { task } = props
@@ -19,20 +22,15 @@ const BuildingDialog = (props: BuildingDialogProps) => {
   const [progress, setProgress] = useState<BuildProgress>()
   const info = useInfoDialog()
   const completeHandle = useCallback(
-    (cop: PZTask.TaskCompleteReport<BuildProgress>) => {
+    (cop: { canceled: boolean }) => {
       closeModal(id)
 
-      if (cop.isCanceled) {
+      if (cop.canceled) {
         info(t('building canceled'))
-      } else if (cop.value) {
-        const p = cop.value
-        const time = (Date.now() - props.start) / 1000
-        const total = formatSize(p.total[1])
-        const speed = formatSize(p.total[1] / time)
-        const message = t('build complete message ##', { time: formatTime(time), speed, total })
-        info(message, t('build complete'))
       } else {
-        info(t('build complete'))
+        const time = (Date.now() - props.start) / 1000
+        const message = t('build complete message ##', { time: formatTime(time) })
+        info(message, t('build complete'))
       }
     },
     [info, closeModal, id],
@@ -44,13 +42,13 @@ const BuildingDialog = (props: BuildingDialogProps) => {
       setUsedTime(formatTime(second))
     }
     let completeBind = completeHandle
-    task.addReporter(reporter)
+    const subscription = task.addReporter(reporter)
     task.complete.then((p) => {
       completeBind(p)
     })
 
     return () => {
-      task.removeReporter(reporter)
+      subscription.unsubscribe()
       completeBind = () => {}
     }
   }, [task])
@@ -120,10 +118,19 @@ const ToBuildDialog = memo((props: ToBuildDialogProps) => {
     if (!pw) return setMsg(t('password cannot be empty'))
     if (!target) return setMsg(t('save target cannot be empty'))
 
-    const task = startPZBuild(props.indexBuilder, target, desc, pw)
-    openModal(<BuildingDialog task={task} start={Date.now()} />)
-
-    closeModal(id)
+    startPZBuild(props.indexBuilder, target, desc, pw)
+      .then((result) => {
+        if (result.success) {
+          openModal(<BuildingDialog task={result.task} start={Date.now()} />)
+          closeModal(id)
+        } else {
+          setMsg(result.message ?? t('unknown error'))
+        }
+      })
+      .catch((err) => {
+        RendererLogger.errorStack(err)
+        setMsg(err?.message ?? t('unknown error'))
+      })
   }, [startPZBuild, target, descRef.current, pwRef.current])
 
   return (

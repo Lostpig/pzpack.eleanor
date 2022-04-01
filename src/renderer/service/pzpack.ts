@@ -1,14 +1,11 @@
-import { OpenPzFile, PZSubscription, PZVideo, type PZLoader, PZIndexBuilder, PZBuilder } from 'pzpack'
+import { PZIndexBuilder, PZVideo, PZSubscription, PZIndexReader, serializeIndex, type BuildProgress } from 'pzpack'
+import type { PZLoaderStatus, PZPKBuildArgs, PZPKMvBuildArgs } from '../../lib/declares'
+import { invokeIpc, subscribeChannel } from './ipc'
 import { getConfig } from './config'
-import { RendererLogger } from './logger'
 
-type OpenPZLoaderResult = {
-  success: boolean
-  message?: string
-}
 interface PZInstanceBase {
   type: 'builder' | 'mvbuilder' | 'loader' | 'mvloader'
-  binding: PZIndexBuilder | PZLoader | PZVideo.PZMVIndexBuilder | PZVideo.PZMVSimpleServer
+  binding: PZIndexBuilder | PZIndexReader | PZVideo.PZMVIndexBuilder
 }
 interface PZBuilderInstance extends PZInstanceBase {
   type: 'builder'
@@ -19,100 +16,162 @@ interface PZMVBuilderInstance extends PZInstanceBase {
   binding: PZVideo.PZMVIndexBuilder
 }
 interface PZLoaderInstance extends PZInstanceBase {
-  type: 'loader'
-  binding: PZLoader
+  type: 'loader' | 'mvloader'
+  id: number
+  binding: PZIndexReader
+  port: number
+  status: PZLoaderStatus
 }
-interface PZMVLoaderInstance extends PZInstanceBase {
-  type: 'mvloader'
-  binding: PZVideo.PZMVSimpleServer
-}
-export type PZInstance = PZBuilderInstance | PZMVBuilderInstance | PZLoaderInstance | PZMVLoaderInstance
+export type PZInstance = PZBuilderInstance | PZMVBuilderInstance | PZLoaderInstance
 
 const PZInstanceNotify = new PZSubscription.PZBehaviorNotify<PZInstance | undefined>(undefined)
 export const PZInstanceObservable = PZInstanceNotify.asObservable()
 
-const closeInstance = (instance: PZInstance) => {
-  if (instance.type === 'loader') {
-    instance.binding.close()
-  } else if (instance.type === 'mvloader') {
-    instance.binding.close()
-    instance.binding.loader.close()
-  }
-}
-const pushPZLoader = (loader: PZLoader) => {
-  if (loader.type === 'PZPACK') {
-    PZInstanceNotify.next({ type: 'loader', binding: loader })
-  } else {
-    const server = new PZVideo.PZMVSimpleServer(loader)
-    PZInstanceNotify.next({ type: 'mvloader', binding: server })
-  }
-}
-export const openPZloader = (file: string, password: string): OpenPZLoaderResult => {
-  const instance = PZInstanceNotify.current
-  let loader: PZLoader | undefined
+export const openPZloader = async (
+  filename: string,
+  password: string,
+): Promise<{ success: boolean; message?: string }> => {
+  const result = await invokeIpc('pzpk:open', { filename, password })
+  if (!result.success) return result
 
-  try {
-    if (instance && instance.type === 'loader') {
-      if (file === instance.binding.filename) return { success: false, message: 'already opened file' }
-    }
+  const idxResult = await invokeIpc('pzpk:getIndex', result.id)
+  if (!idxResult.success) return idxResult
+  const indices = new PZIndexReader()
+  const idxBuffer = Buffer.from(idxResult.data, idxResult.data.byteOffset, idxResult.data.byteLength)
+  indices.decode(idxBuffer, result.loaderStatus.version)
 
-    loader = OpenPzFile(file, password)
-    if (instance) closeInstance(instance)
-    pushPZLoader(loader)
-    return { success: true }
-  } catch (err) {
-    RendererLogger.errorStack(err)
-    if (loader) {
-      loader.close()
-    }
+  const instType = result.loaderStatus.type === 'PZPACK' ? 'loader' : 'mvloader'
+  PZInstanceNotify.next({
+    type: instType,
+    binding: indices,
+    id: result.id,
+    port: result.port,
+    status: result.loaderStatus,
+  })
 
-    return { success: false, message: (err as Error).message }
-  }
+  return { success: true }
 }
-export const closePZInstance = () => {
+export const closePZInstance = async () => {
   const current = PZInstanceNotify.current
-
   if (current) {
-    closeInstance(current)
+    if (current.type === 'loader' || current.type === 'mvloader') {
+      await invokeIpc('pzpk:close', current.id)
+    }
     PZInstanceNotify.next(undefined)
   }
 }
 
+export type IPCTask<T> = {
+  addReporter: (handler: (progress: T) => void) => PZSubscription.Subscription
+  complete: Promise<{ canceled: boolean }>
+  cancel: () => Promise<void>
+}
+const createBuildingTask = (id: number) => {
+  const addReporter = (handler: (progress: BuildProgress) => void) => {
+    return subscribeChannel('pzpk:building', (p) => {
+      if (p.id === id) handler(p.progress)
+    })
+  }
+  const complete = new Promise<{ canceled: boolean }>((res) => {
+    subscribeChannel('pzpk:buildcomplete', (c) => {
+      if (c.id === id) res({ canceled: c.canceled })
+    })
+  })
+  const cancel = async () => {
+    await invokeIpc('pzpk:close', id)
+  }
+
+  const task: IPCTask<BuildProgress> = {
+    addReporter,
+    complete,
+    cancel,
+  }
+  return { success: true, task } as { success: true; task: IPCTask<BuildProgress> }
+}
 export const openPZBuilder = () => {
   const instance = PZInstanceNotify.current
   if (instance && instance.type === 'builder') return
-  if (instance) closeInstance(instance)
+  if (instance) closePZInstance()
 
   const indexBuilder = new PZIndexBuilder()
   PZInstanceNotify.next({ type: 'builder', binding: indexBuilder })
 }
-export const startPZBuild = (indexBuilder: PZIndexBuilder, target: string, description: string, password: string) => {
-  const builder = new PZBuilder({
+export const startPZBuild = async (
+  indexBuilder: PZIndexBuilder,
+  target: string,
+  description: string,
+  password: string,
+) => {
+  const args: PZPKBuildArgs = {
     type: 'PZPACK',
-    indexBuilder,
-    password
-  })
-  builder.setDescription(description)
-  const task = builder.buildTo(target)
-  return task
+    options: { target, desc: description, password },
+    indexData: serializeIndex(indexBuilder),
+  }
+
+  const result = await invokeIpc('pzpk:pack', args)
+  if (result.success) {
+    return createBuildingTask(result.id)
+  } else {
+    return result
+  }
 }
 
+const createMvBuildingTask = (id: number) => {
+  const addReporter = (handler: (progress: PZVideo.PZMVProgress) => void) => {
+    return subscribeChannel('pzpk:mvbuilding', (p) => {
+      if (p.id === id) handler(p.progress)
+    })
+  }
+  const complete = new Promise<{ canceled: boolean }>((res) => {
+    subscribeChannel('pzpk:buildcomplete', (c) => {
+      if (c.id === id) res({ canceled: c.canceled })
+    })
+  })
+  const cancel = async () => {
+    await invokeIpc('pzpk:close', id)
+  }
+
+  const task: IPCTask<PZVideo.PZMVProgress> = {
+    addReporter,
+    complete,
+    cancel,
+  }
+  return { success: true, task } as { success: true; task: IPCTask<PZVideo.PZMVProgress> }
+}
 export const openPZMVBuilder = () => {
   const instance = PZInstanceNotify.current
   if (instance && instance.type === 'mvbuilder') return
-  if (instance) closeInstance(instance)
+  if (instance) closePZInstance()
 
   const mvIndexBuilder = new PZVideo.PZMVIndexBuilder()
   PZInstanceNotify.next({ type: 'mvbuilder', binding: mvIndexBuilder })
 }
-export const startPZMVBuild = async (target: string, options: Omit<PZVideo.PZMVBuilderOptions, 'ffmpegDir' | 'tempDir'>) => {
+export const startPZMVBuild = async (
+  target: string,
+  options: Omit<PZVideo.PZMVBuilderOptions, 'ffmpegDir' | 'tempDir'>,
+) => {
   const ffmpegDir = await getConfig('ffmpeg')
   const tempDir = await getConfig('tempDir')
 
   if (!ffmpegDir) throw new Error('ffmpeg not setted')
   if (!tempDir) throw new Error('temp directory not setted')
-  
-  const builder = new PZVideo.PZMVBuilder(Object.assign(options, { ffmpegDir, tempDir }))
-  const task = builder.buildTo(target)
-  return task
+
+  const args: PZPKMvBuildArgs = {
+    type: 'PZVIDEO',
+    target,
+    options: {
+      password: options.password,
+      description: options.description,
+      videoCodec: options.videoCodec,
+      audioCodec: options.audioCodec,
+    },
+    indexData: PZVideo.serializeMvIndex(options.indexBuilder),
+  }
+
+  const result = await invokeIpc('pzpk:pack', args)
+  if (result.success) {
+    return createMvBuildingTask(result.id)
+  } else {
+    return result
+  }
 }

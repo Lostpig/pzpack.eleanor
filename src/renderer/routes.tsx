@@ -9,15 +9,15 @@ export const RoutesContainer = () => {
   const instance = usePZInstance()
   const content = useMemo(() => {
     if (!instance) return <WhitePage />
-    if (instance.type === 'loader') return <PZFileExplorer loader={instance.binding} />
-    if (instance.type === 'mvloader') return <PZVideoExplorer server={instance.binding} />
+    if (instance.type === 'loader')
+      return <PZFileExplorer indices={instance.binding} port={instance.port} status={instance.status} />
+    if (instance.type === 'mvloader')
+      return <PZVideoExplorer indices={instance.binding} port={instance.port} status={instance.status} />
     if (instance.type === 'builder') return <PZPackBuilder builder={instance.binding} />
     if (instance.type === 'mvbuilder') return <PZMVBuilder builder={instance.binding} />
 
     return <ErrorPage />
   }, [instance?.type, instance?.binding])
 
-  return <div className="flex-1 overflow-hidden">
-    { content }
-  </div>
+  return <div className="flex-1 overflow-hidden">{content}</div>
 }

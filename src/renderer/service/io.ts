@@ -5,7 +5,7 @@ import { RendererLogger } from './logger'
 export const openFile = async (filters?: Electron.FileFilter[]): Promise<undefined | string> => {
   const fts = filters && filters.length > 0 ? filters : [{ name: 'PZPack', extensions: ['pzpk', 'pzmv'] }]
 
-  const file = await invokeIpc('fd:open', fts)
+  const file = await invokeIpc('operate:openfile', fts)
   if (!file || file.length === 0) return
 
   const exists = checkFileExists(file)
@@ -16,9 +16,8 @@ export const openFile = async (filters?: Electron.FileFilter[]): Promise<undefin
 
   return file
 }
-
 export const saveFile = async (): Promise<undefined | string> => {
-  const file = await invokeIpc('fd:save', 'PZPACK')
+  const file = await invokeIpc('operate:savefile', 'PZPACK')
   if (!file || file.length === 0) return
 
   const exists = checkFileExists(file)
@@ -30,13 +29,13 @@ export const saveFile = async (): Promise<undefined | string> => {
   return file
 }
 export const openDir = async (): Promise<undefined | string> => {
-  const dir = await invokeIpc('fd:dir', undefined)
+  const dir = await invokeIpc('operate:openfolder', undefined)
   if (!dir || dir.length === 0) return
 
   return dir
 }
 export const selectFiles = async (): Promise<string[]> => {
-  const files = await invokeIpc('fd:select', undefined)
+  const files = await invokeIpc('operate:openfilemulti', undefined)
   if (!files || files.length === 0) return []
 
   const existsFiles: string[] = []
@@ -52,7 +51,7 @@ export const selectFiles = async (): Promise<string[]> => {
   return existsFiles
 }
 export const selectVideos = async (): Promise<string[]> => {
-  const files = await invokeIpc('fd:select', [{ name: 'Video', extensions: ['mp4', 'mkv', 'avi'] }])
+  const files = await invokeIpc('operate:openfilemulti', [{ name: 'Video', extensions: ['mp4', 'mkv', 'avi'] }])
   if (!files || files.length === 0) return []
 
   const existsFiles: string[] = []
@@ -68,7 +67,7 @@ export const selectVideos = async (): Promise<string[]> => {
   return existsFiles
 }
 export const saveVideo = async (): Promise<undefined | string> => {
-  const file = await invokeIpc('fd:save', 'PZVIDEO')
+  const file = await invokeIpc('operate:savefile', 'PZVIDEO')
   if (!file || file.length === 0) return
 
   const exists = checkFileExists(file)

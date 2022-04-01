@@ -4,10 +4,10 @@ import type { ConfigKey, ConfigValue } from '../../lib/declares'
 import { invokeIpc } from './ipc'
 
 export const getConfig = <K extends ConfigKey>(key: K) => {
-  return invokeIpc('req:config', key) as Promise<ConfigValue<K>>
+  return invokeIpc('config:get', key) as Promise<ConfigValue<K>>
 }
 export const setConfig = <K extends ConfigKey>(key: K, value: ConfigValue<K>) => {
-  return invokeIpc('set:config', { key, value })
+  return invokeIpc('config:set', { key, value })
 }
 export const checkFfmpeg = (dir: string) => {
   const binPath = path.join(dir, 'ffmpeg.exe')

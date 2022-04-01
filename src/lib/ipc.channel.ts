@@ -1,37 +1,73 @@
-import type { PZTypes } from 'pzpack'
-import type { ConfigKey, ConfigValue, PackageInfo, Theme } from './declares'
+import type { PZTypes, PZSubscription, BuildProgress, PZVideo } from 'pzpack'
+import type {
+  ConfigKey,
+  ConfigValue,
+  PackageInfo,
+  Theme,
+  AppliactionInfo,
+  PZPKOpenResult,
+  PZPKIndexResult,
+  PZPKPackResult,
+  PZPKPackArgs,
+} from './declares'
 
-interface IPCChannelDeclareMap {
-  'window::operate': 'close' | 'maximize' | 'minimize' | 'hidden' | 'visibility'
-  'window::changed': 'resize' | 'maximize' | 'unmaximize' | 'minimize' | 'restore'
-  'window::inited': { x: number; y: number; h: number; w: number; maximize: boolean; minimize: boolean }
-  'renderer::ready': null
-  'theme::set': Theme
-  'theme::setted': Theme
-  'exec::player': string
-  'dev::cssreload': null
+export interface MainChannels {
+  'window:operate': 'close' | 'maximize' | 'minimize' | 'hidden' | 'visibility'
+  'theme:set': Theme
+  'exec:explayer': { url: string }
+}
+export interface RendererChannels {
+  'window:changed': 'resize' | 'maximize' | 'unmaximize' | 'minimize' | 'restore'
+  'theme:changed': Theme
+  'dev:reloadcss': void
+
+  'pzpk:building': { id: number; progress: BuildProgress }
+  'pzpk:mvbuilding': { id: number; progress: PZVideo.PZMVProgress }
+  'pzpk:buildcomplete': { id: number; canceled: boolean }
 }
 
-export type Channel = keyof IPCChannelDeclareMap
-export type ChData<C extends Channel> = IPCChannelDeclareMap[C]
-export type ChPayload<C extends Channel = Channel> = { channel: C; data: ChData<C> }
-export type ChHandler<C extends Channel> = (data: ChData<C>) => void
+export type MainChannelKeys = keyof MainChannels
+export type MainChannelData<K extends MainChannelKeys> = MainChannels[K]
+export type MainChannelHandler<K extends MainChannelKeys> = (data: MainChannelData<K>) => void
+export type RendererChannelKeys = keyof RendererChannels
+export type RendererChannelData<K extends RendererChannelKeys> = RendererChannels[K]
+export type RendererChannelHandler<K extends RendererChannelKeys> = (data: RendererChannelData<K>) => void
 
-interface IPCInvokeDeclareMap {
-  'req:root': [undefined, string]
-  'req:resource': [undefined, string]
-  'req:config': [ConfigKey, ConfigValue<ConfigKey>]
-  'req:package': [void, PackageInfo]
-  'req:theme': [void, Theme]
-  'set:config': [{ key: ConfigKey; value: ConfigValue<ConfigKey> }, void],
-  'fd:open': [Electron.FileFilter[] | undefined, string]
-  'fd:select': [Electron.FileFilter[] | undefined, string[]]
-  'fd:save': [PZTypes, string]
-  'fd:dir': [void, string]
-  'req:dev': [void, boolean]
+export type MainChannelReceiver<C extends MainChannelKeys> = {
+  subscribe: (handler: MainChannelHandler<C>) => PZSubscription.Subscription
 }
-export type InvokeChannel = keyof IPCInvokeDeclareMap
-export type InvokeArg<C extends InvokeChannel> = IPCInvokeDeclareMap[C][0]
-export type InvokeRet<C extends InvokeChannel> = IPCInvokeDeclareMap[C][1]
+export type MainChannelSender<C extends RendererChannelKeys> = {
+  send: (data: RendererChannelData<C>) => void
+}
+export type RendererChannelReceiver<C extends RendererChannelKeys> = {
+  subscribe: (handler: RendererChannelHandler<C>) => PZSubscription.Subscription
+}
+export type RendererChannelSender<C extends MainChannelKeys> = {
+  send: (data: MainChannelData<C>) => void
+}
+
+interface IPCInvokes {
+  'config:set': [{ key: ConfigKey; value: ConfigValue<ConfigKey> }, void]
+  'config:get': [ConfigKey, ConfigValue<ConfigKey>]
+  'theme:get': [void, Theme]
+  'theme:set': [Theme, void]
+
+  'application:inited': [void, { maximize: boolean; theme: Theme }]
+  'application:getinfo': [void, AppliactionInfo]
+  'application:getpkg': [void, PackageInfo]
+
+  'operate:openfile': [Electron.FileFilter[] | void, string]
+  'operate:openfilemulti': [Electron.FileFilter[] | void, string[]]
+  'operate:savefile': [PZTypes, string]
+  'operate:openfolder': [void, string]
+
+  'pzpk:open': [{ filename: string; password: string }, PZPKOpenResult]
+  'pzpk:close': [number, void]
+  'pzpk:pack': [PZPKPackArgs, PZPKPackResult]
+  'pzpk:getIndex': [number, PZPKIndexResult]
+}
+export type InvokeChannel = keyof IPCInvokes
+export type InvokeArg<C extends InvokeChannel> = IPCInvokes[C][0]
+export type InvokeRet<C extends InvokeChannel> = IPCInvokes[C][1]
 export type InvokeHandler<C extends InvokeChannel> = (arg: InvokeArg<C>) => InvokeRet<C>
 export type InvokeCaller<C extends InvokeChannel> = (channel: C, arg: InvokeArg<C>) => Promise<InvokeRet<C>>

@@ -1,12 +1,14 @@
 import React, { useCallback, useContext, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { PZVideo, PZFolder } from 'pzpack'
+import type { PZFolder } from 'pzpack'
 import { MediaPlayer } from 'dashjs'
+
 import { ModalContext, useModalManager, useExternalPlayer, useInfoDialog } from '../common'
 import { PZButton } from '../shared'
 import { CloseLargeIcon } from '../icons'
+import { createUrl } from '../../utils'
 
-export const VideoPlayer: React.FC<{ server: PZVideo.PZMVSimpleServer; video: PZFolder }> = ({ server, video }) => {
+export const VideoPlayer: React.FC<{ port: number, video: PZFolder }> = ({ port, video }) => {
   const [t] = useTranslation()
   const ref = useRef<HTMLVideoElement>(null)
   const { id } = useContext(ModalContext)
@@ -15,9 +17,8 @@ export const VideoPlayer: React.FC<{ server: PZVideo.PZMVSimpleServer; video: PZ
   const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
 
   useEffect(() => {
-    if (!server.running) server.start()
     if (ref.current) {
-      const url = `http://localhost:${server.port}/${video.id}/play.mpd`
+      const url = createUrl(port, video.id, 'play.mpd')
       const player = MediaPlayer().create()
 
       let errorShowed = false
@@ -34,18 +35,18 @@ export const VideoPlayer: React.FC<{ server: PZVideo.PZMVSimpleServer; video: PZ
       }
     }
     return () => {}
-  }, [ref.current, server, video])
+  }, [ref.current, port, video])
   const openExPlayer = useCallback(() => {
     checkExternalPlayer().then((exists) => {
       if (exists) {
-        const url = `http://localhost:${server.port}/${video.id}/play.mpd`
-        openExternalPlayer(url, server)
+        const url = createUrl(port, video.id, 'play.mpd')
+        openExternalPlayer(url)
         if (ref.current) ref.current.pause()
       } else {
         info(t('external player not setted'), t('warning'), 'warning')
       }
     })
-  },[checkExternalPlayer, openExternalPlayer, server, video, ref.current])
+  },[checkExternalPlayer, openExternalPlayer, port, video, ref.current])
 
   return (
     <div className="absolute top-0 left-0 w-screen h-screen bg-white dark:bg-neutral-700">

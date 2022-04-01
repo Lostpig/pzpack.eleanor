@@ -2,14 +2,16 @@ import * as path from 'path'
 import { initIpc, invokeIpc } from './ipc'
 import { initI18n } from './i18n'
 import { initDevMode } from './dev'
-import { RendererLogger, PZDefaultLogger } from './logger'
-
+import { init } from './global'
+import { RendererLogger } from './logger'
 
 export const initializeService = async () => {
   initIpc()
-  const root = await invokeIpc('req:root', undefined)
-  RendererLogger.enableFileLog(path.join(root, 'data/log/renderer.log'))
-  PZDefaultLogger.enableFileLog(path.join(root, 'data/log/renderer-pz.log'))
+  const appInfo = await invokeIpc('application:getinfo', undefined)
+  const pkgInfo = await invokeIpc('application:getpkg', undefined)
+  init(appInfo, pkgInfo)
+
+  RendererLogger.enableFileLog(path.join(appInfo.ROOT, 'data/log/renderer.log'))
 
   await initI18n()
   await initDevMode()

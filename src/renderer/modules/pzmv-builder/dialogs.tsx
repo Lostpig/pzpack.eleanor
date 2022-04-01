@@ -1,16 +1,17 @@
 import React, { useState, useContext, useRef, useEffect, useCallback, memo, createContext, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { PZVideo, PZTask } from 'pzpack'
+import type { PZVideo } from 'pzpack'
 import { mergeCls, formatTime } from '../../utils'
 import { useModalManager, ModalContext, DialogBase, useIoService, useInfoDialog } from '../common'
 import { PZText, PZButton, PZPassword, PZSelect, PZProgress } from '../shared'
 import { useAudioCodec, useVideoCodec, useBuilder } from './hooks'
-import { RendererLogger } from 'renderer/service/logger'
+import { RendererLogger } from '../../service/logger'
+import type { IPCTask } from '../../service/pzpack'
 
 // #region BuildingDialog
 type BuildingDialogProps = {
   start: number
-  task: PZTask.AsyncTask<PZVideo.PZMVProgress>
+  task: IPCTask<PZVideo.PZMVProgress>
 }
 
 const BuildingStagePanel: React.FC<{ progress: PZVideo.PZMVProgress }> = ({ progress }) => {
@@ -73,7 +74,8 @@ const BuildingStagePanel: React.FC<{ progress: PZVideo.PZMVProgress }> = ({ prog
           <label className="w-32 mr-6">{t('build stage')}</label>
           <span>{t('clean temp files')}</span>
         </div>
-      </div>)
+      </div>
+    )
   }
 
   return content
@@ -87,10 +89,10 @@ const BuildingDialog = (props: BuildingDialogProps) => {
   const [progress, setProgress] = useState<PZVideo.PZMVProgress>()
   const info = useInfoDialog()
   const completeHandle = useCallback(
-    (cop: PZTask.TaskCompleteReport<PZVideo.PZMVProgress>) => {
+    (cop: { canceled: boolean }) => {
       closeModal(id)
 
-      if (cop.isCanceled) {
+      if (cop.canceled) {
         info(t('building canceled'))
       } else {
         const time = (Date.now() - props.start) / 1000
@@ -101,19 +103,18 @@ const BuildingDialog = (props: BuildingDialogProps) => {
     [info, closeModal, id],
   )
   useEffect(() => {
-    const reporter = (p: PZVideo.PZMVProgress) => {
+    let completeBind = completeHandle
+    const subscription = task.addReporter((p: PZVideo.PZMVProgress) => {
       setProgress(p)
       const second = (Date.now() - props.start) / 1000
       setUsedTime(formatTime(second))
-    }
-    let completeBind = completeHandle
-    task.addReporter(reporter)
+    })
     task.complete.then((p) => {
       completeBind(p)
     })
 
     return () => {
-      task.removeReporter(reporter)
+      subscription.unsubscribe()
       completeBind = () => {}
     }
   }, [task])
@@ -374,9 +375,13 @@ const ToBuildDialog = memo(({ indexBuilder }: ToBuildDialogProps) => {
     if (!target) return setMsg(t('save target cannot be empty'))
 
     startPZMVBuild(target, { indexBuilder, password: pw, description: desc, videoCodec, audioCodec })
-      .then((task) => {
-        openModal(<BuildingDialog task={task} start={Date.now()} />)
-        closeModal(id)
+      .then((result) => {
+        if (result.success) {
+          openModal(<BuildingDialog task={result.task} start={Date.now()} />)
+          closeModal(id)
+        } else {
+          setMsg(result.message ?? t('unknown error'))
+        }
       })
       .catch((err) => {
         RendererLogger.errorStack(err)

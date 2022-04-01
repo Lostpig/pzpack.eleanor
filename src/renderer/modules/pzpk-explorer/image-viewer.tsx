@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, memo, useContext, useMemo, useCallback } from 'react'
-import { PZSubscription, type PZFolder, type PZLoader, type PZFilePacked } from 'pzpack'
+import { PZSubscription, type PZFolder, type PZFilePacked, type PZIndexReader } from 'pzpack'
 import { useTranslation } from 'react-i18next'
 import { RendererLogger } from '../../service/logger'
 import { wait } from '../../../lib/utils'
@@ -253,9 +253,8 @@ const ViewerContent: React.FC = () => {
   }, [contentBinding, next, prev])
   useEffect(() => {
     if (contentBinding) {
-      getImage(count).then((url) => {
-        contentBinding?.change(url)
-      })
+      const url = getImage(count)
+      contentBinding?.change(url)
     }
   }, [contentBinding, getImage, count])
   const toggleFullscreen = useCallback(() => {
@@ -270,10 +269,14 @@ const ViewerContent: React.FC = () => {
     }
   }, [ref.current])
   const closeViewer = useCallback(() => {
-    if (document.exitFullscreen) {
-      document.exitFullscreen().then(() => setFullscreen(false))
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().then(() => {
+        setFullscreen(false)
+        closeModal(id)
+      })
+    } else {
+      closeModal(id)
     }
-    closeModal(id)
   }, [closeModal, id])
   const file = useMemo(() => {
     return getFile(count)
@@ -328,12 +331,13 @@ const ViewerContent: React.FC = () => {
 }
 
 interface ImageViewerProps {
-  loader: PZLoader
+  port: number
+  indices: PZIndexReader
   folder: PZFolder
   initFile: PZFilePacked
 }
 export const ImageViewer: React.FC<ImageViewerProps> = memo((props) => {
-  const context = useImageContext(props.loader, props.folder, props.initFile)
+  const context = useImageContext(props.port, props.indices, props.folder, props.initFile)
 
   return (
     <ImageViewerContext.Provider value={context}>

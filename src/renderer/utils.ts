@@ -1,6 +1,9 @@
-import type { PZFilePacked, PZLoader, PZFolder } from 'pzpack'
+import type { PZFilePacked, PZFolder } from 'pzpack'
 import { parseStringPromise } from 'xml2js'
 import { default as parseXsdDuration } from 'parse-xsd-duration'
+import { formatTime, createUrl } from '../lib/utils'
+
+export { formatTime, createUrl }
 
 export const mergeCls = (...cls: (string | undefined | boolean)[]) => {
   return cls.filter((c) => typeof c === 'string').join(' ')
@@ -26,32 +29,15 @@ export const FirstLetterUpper = (str: string) => {
   return str[0].toUpperCase() + str.slice(1)
 }
 
-export const parseVideoTime = async (loader: PZLoader, videoFolder: PZFolder) => {
-  if (loader.type !== 'PZVIDEO') return 0
-
-  const idx = loader.loadIndex()
-  const mpdFile = idx.findFile(videoFolder.id, 'output.mpd')
-  if (!mpdFile) return 0
-
-  const data = await loader.loadFileAsync(mpdFile)
-  const xmlStr = data.toString('utf8')
-  const xmlObj = await parseStringPromise(xmlStr)
+export const parseVideoTime = async (port: number, videoFolder: PZFolder) => {
+  const url = createUrl(port, videoFolder.id, 'output.mpd')
+  const resp = await fetch(url)
+  const xmlText = await resp.text()
+  const xmlObj = await parseStringPromise(xmlText)
 
   const duration = xmlObj?.MPD?.$?.mediaPresentationDuration as string
   if (!duration) return 0
 
   const time = parseXsdDuration(duration)
   return time
-}
-
-export const formatTime = (timeSeconds: number) => {
-  const hours = Math.trunc(timeSeconds / 3600)
-  const minutes = Math.trunc(timeSeconds / 60) % 60
-  const seconds = Math.trunc(timeSeconds) % 60
-
-  const f2 = (s: number) => {
-    return ('00' + s.toString()).slice(-2)
-  }
-
-  return `${f2(hours)}:${f2(minutes)}:${f2(seconds)}`
 }

@@ -38,9 +38,10 @@ const OpenFileDialog = (props: FileDialogProps) => {
   }, [])
   const openHandler = useCallback(() => {
     const pw = pwElRef.current?.value ?? ''
-    const result = openPZloader(props.path, pw)
-    if (result.success) closeModal(id)
-    else setMsg(result.message && result.message !== '' ? result.message : 'unknown error')
+    openPZloader(props.path, pw).then((result) => {
+      if (result.success) closeModal(id)
+      else setMsg(result.message && result.message !== '' ? result.message : 'unknown error')
+    })
   }, [openPZloader, setMsg, pwElRef.current])
 
   return (
@@ -79,6 +80,7 @@ const InfoDialog = (props: InfoDialogProps) => {
   const { id } = useContext(ModalContext)
   const iconColor =
     props.type === 'error' ? 'text-red-600' : props.type === 'warning' ? 'text-yellow-500' : 'text-blue-600'
+  const textParts = props.text.split('\n').filter((s) => s.trim() !== '')
 
   return (
     <DialogBase>
@@ -91,7 +93,9 @@ const InfoDialog = (props: InfoDialogProps) => {
             <InfoIcon size={32} />
           </div>
           <div>
-            <pre>{props.text}</pre>
+            {textParts.map((s, i) => (
+              <p key={i} className='m-0'>{s}</p>
+            ))}
           </div>
         </div>
         <div className="flex flex-row justify-end">

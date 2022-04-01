@@ -1,8 +1,9 @@
 import * as path from 'path'
 import { app } from 'electron'
-import type { PackageInfo } from '../lib/declares'
+import type { PackageInfo } from '../../lib/declares'
 
-const isDevMode = process.argv.indexOf('--dev') >= 1
+export const isDevMode = process.argv.indexOf('--dev') >= 1
+export const isDebug = process.argv.indexOf('--debug') >= 1
 
 export const ROOT = isDevMode ? app.getAppPath() : path.dirname(process.execPath)
 export const RESOURCE = app.getAppPath()
