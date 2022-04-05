@@ -51,6 +51,10 @@ type PZPKFailedResult = {
   success: false
   message: string
 }
+type PZPKSuccessResult = {
+  success: true
+}
+export type PZPKBaseResult = PZPKSuccessResult | PZPKFailedResult
 export type PZPKOpenResult = PZPKOpenSuccess | PZPKFailedResult
 export type PZPKIndexResult = PZPKIndexSuccess | PZPKFailedResult
 export type PZPKPackResult = PZPKPackSuccess | PZPKFailedResult
@@ -73,3 +77,15 @@ export interface PZPKMvBuildArgs {
   options: PZMVBuildOptions
 }
 export type PZPKPackArgs = PZPKBuildArgs | PZPKMvBuildArgs
+
+export type PWBookArgs = {
+  mode: 'open' | 'create'
+  filename: string
+  masterPw: string
+}
+export type PWBookSuccess = {
+  success: true
+  filename: string
+  items: string[]
+}
+export type PWBookResult = PWBookSuccess | PZPKFailedResult

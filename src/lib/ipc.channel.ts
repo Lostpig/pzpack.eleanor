@@ -1,4 +1,4 @@
-import type { PZTypes, PZSubscription, BuildProgress, PZVideo } from 'pzpack'
+import type { PZSubscription, BuildProgress, PZVideo } from 'pzpack'
 import type {
   ConfigKey,
   ConfigValue,
@@ -9,6 +9,9 @@ import type {
   PZPKIndexResult,
   PZPKPackResult,
   PZPKPackArgs,
+  PWBookArgs,
+  PWBookResult,
+  PZPKBaseResult,
 } from './declares'
 
 export interface MainChannels {
@@ -24,6 +27,8 @@ export interface RendererChannels {
   'pzpk:building': { id: number; progress: BuildProgress }
   'pzpk:mvbuilding': { id: number; progress: PZVideo.PZMVProgress }
   'pzpk:buildcomplete': { id: number; canceled: boolean }
+
+  'pwbook:update': { items: string[] }
 }
 
 export type MainChannelKeys = keyof MainChannels
@@ -58,16 +63,23 @@ interface IPCInvokes {
 
   'operate:openfile': [Electron.FileFilter[] | void, string]
   'operate:openfilemulti': [Electron.FileFilter[] | void, string[]]
-  'operate:savefile': [PZTypes, string]
+  'operate:savefile': [Electron.FileFilter[] | void, string]
   'operate:openfolder': [void, string]
 
   'pzpk:open': [{ filename: string; password: string }, PZPKOpenResult]
   'pzpk:close': [number, void]
   'pzpk:pack': [PZPKPackArgs, PZPKPackResult]
   'pzpk:getIndex': [number, PZPKIndexResult]
+
+  'pwbook:close': [void, PZPKBaseResult]
+  'pwbook:current': [void, PWBookResult]
+  'pwbook:open': [PWBookArgs, PWBookResult]
+  'pwbook:add': [string, PZPKBaseResult]
+  'pwbook:delete': [string, PZPKBaseResult]
+  'pwbook:tryopen': [string, PZPKOpenResult]
 }
 export type InvokeChannel = keyof IPCInvokes
 export type InvokeArg<C extends InvokeChannel> = IPCInvokes[C][0]
 export type InvokeRet<C extends InvokeChannel> = IPCInvokes[C][1]
-export type InvokeHandler<C extends InvokeChannel> = (arg: InvokeArg<C>) => InvokeRet<C>
+export type InvokeHandler<C extends InvokeChannel> = (arg: InvokeArg<C>) => InvokeRet<C> | Promise<InvokeRet<C>>
 export type InvokeCaller<C extends InvokeChannel> = (channel: C, arg: InvokeArg<C>) => Promise<InvokeRet<C>>

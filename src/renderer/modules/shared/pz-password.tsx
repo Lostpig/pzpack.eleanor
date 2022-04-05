@@ -20,6 +20,9 @@ export const PZPassword = forwardRef((props: PZPasswordProps, ref: ForwardedRef<
     },
     get value () {
       return inputRef.current?.value ?? ''
+    },
+    set value (val: string) {
+      if (inputRef.current) inputRef.current.value = val
     }
   }))
 

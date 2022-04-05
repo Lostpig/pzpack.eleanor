@@ -41,3 +41,21 @@ export const parseVideoTime = async (port: number, videoFolder: PZFolder) => {
   const time = parseXsdDuration(duration)
   return time
 }
+
+export const defFilters = {
+  PZFiles: { name: 'PZPack', extensions: ['pzpk', 'pzmv'] },
+  PZPack: { name: 'PZPack', extensions: ['pzpk'] },
+  PZVideo: { name: 'PZVideo', extensions: ['pzmv'] },
+  PZPwBook: { name: 'PZPasswordBook', extensions: ['pzpwb'] },
+}
+
+const chars = '!@#$%^&*()-=_+[]{}:;<>,.?~1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+export const randomPassword = () => {
+  const l = chars.length
+  const p = []
+  for (let i = 0; i < 24; i++) {
+    const x = Math.floor(Math.random() * l)
+    p.push(chars[x])
+  }
+  return p.join('')
+}

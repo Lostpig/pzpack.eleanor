@@ -1,5 +1,5 @@
 import { PZIndexBuilder, PZVideo, PZSubscription, PZIndexReader, serializeIndex, type BuildProgress } from 'pzpack'
-import type { PZLoaderStatus, PZPKBuildArgs, PZPKMvBuildArgs } from '../../lib/declares'
+import type { PZPKBuildArgs, PZPKMvBuildArgs, PZLoaderStatus } from '../../lib/declares'
 import { invokeIpc, subscribeChannel } from './ipc'
 import { getConfig } from './config'
 
@@ -27,29 +27,31 @@ export type PZInstance = PZBuilderInstance | PZMVBuilderInstance | PZLoaderInsta
 const PZInstanceNotify = new PZSubscription.PZBehaviorNotify<PZInstance | undefined>(undefined)
 export const PZInstanceObservable = PZInstanceNotify.asObservable()
 
+export const bindingPZloader = async (id: number, port: number, status: PZLoaderStatus) => {
+  const idxResult = await invokeIpc('pzpk:getIndex', id)
+  if (!idxResult.success) return idxResult
+  const indices = new PZIndexReader()
+  const idxBuffer = Buffer.from(idxResult.data, idxResult.data.byteOffset, idxResult.data.byteLength)
+  indices.decode(idxBuffer, status.version)
+
+  const instType = status.type === 'PZPACK' ? 'loader' : 'mvloader'
+  PZInstanceNotify.next({
+    type: instType,
+    binding: indices,
+    id: id,
+    port: port,
+    status: status,
+  })
+
+  return { success: true }
+}
 export const openPZloader = async (
   filename: string,
   password: string,
 ): Promise<{ success: boolean; message?: string }> => {
   const result = await invokeIpc('pzpk:open', { filename, password })
   if (!result.success) return result
-
-  const idxResult = await invokeIpc('pzpk:getIndex', result.id)
-  if (!idxResult.success) return idxResult
-  const indices = new PZIndexReader()
-  const idxBuffer = Buffer.from(idxResult.data, idxResult.data.byteOffset, idxResult.data.byteLength)
-  indices.decode(idxBuffer, result.loaderStatus.version)
-
-  const instType = result.loaderStatus.type === 'PZPACK' ? 'loader' : 'mvloader'
-  PZInstanceNotify.next({
-    type: instType,
-    binding: indices,
-    id: result.id,
-    port: result.port,
-    status: result.loaderStatus,
-  })
-
-  return { success: true }
+  return await bindingPZloader(result.id, result.port, result.loaderStatus)
 }
 export const closePZInstance = async () => {
   const current = PZInstanceNotify.current
@@ -73,8 +75,11 @@ const createBuildingTask = (id: number) => {
     })
   }
   const complete = new Promise<{ canceled: boolean }>((res) => {
-    subscribeChannel('pzpk:buildcomplete', (c) => {
-      if (c.id === id) res({ canceled: c.canceled })
+    const subscription = subscribeChannel('pzpk:buildcomplete', (c) => {
+      if (c.id === id) {
+        subscription.unsubscribe()
+        res({ canceled: c.canceled })
+      }
     })
   })
   const cancel = async () => {
@@ -123,8 +128,11 @@ const createMvBuildingTask = (id: number) => {
     })
   }
   const complete = new Promise<{ canceled: boolean }>((res) => {
-    subscribeChannel('pzpk:buildcomplete', (c) => {
-      if (c.id === id) res({ canceled: c.canceled })
+    const subscription = subscribeChannel('pzpk:buildcomplete', (c) => {
+      if (c.id === id) {
+        subscription.unsubscribe()
+        res({ canceled: c.canceled })
+      }
     })
   })
   const cancel = async () => {

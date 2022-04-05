@@ -1,9 +1,10 @@
 import { checkFileExists } from '../../lib/io'
+import { defFilters } from '../utils'
 import { invokeIpc } from './ipc'
 import { RendererLogger } from './logger'
 
 export const openFile = async (filters?: Electron.FileFilter[]): Promise<undefined | string> => {
-  const fts = filters && filters.length > 0 ? filters : [{ name: 'PZPack', extensions: ['pzpk', 'pzmv'] }]
+  const fts = filters && filters.length > 0 ? filters : [defFilters.PZFiles]
 
   const file = await invokeIpc('operate:openfile', fts)
   if (!file || file.length === 0) return
@@ -16,8 +17,8 @@ export const openFile = async (filters?: Electron.FileFilter[]): Promise<undefin
 
   return file
 }
-export const saveFile = async (): Promise<undefined | string> => {
-  const file = await invokeIpc('operate:savefile', 'PZPACK')
+export const saveFile = async (filters?: Electron.FileFilter[]): Promise<undefined | string> => {
+  const file = await invokeIpc('operate:savefile', filters)
   if (!file || file.length === 0) return
 
   const exists = checkFileExists(file)
@@ -65,16 +66,4 @@ export const selectVideos = async (): Promise<string[]> => {
   }
 
   return existsFiles
-}
-export const saveVideo = async (): Promise<undefined | string> => {
-  const file = await invokeIpc('operate:savefile', 'PZVIDEO')
-  if (!file || file.length === 0) return
-
-  const exists = checkFileExists(file)
-  if (exists) {
-    RendererLogger.warning(`save file "${file}" is already exists`)
-    return
-  }
-
-  return file
 }

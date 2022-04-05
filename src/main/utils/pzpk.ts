@@ -3,6 +3,7 @@ import {
   PZSubscription,
   PZBuilder,
   PZVideo,
+  getPZPackFileMate,
   type PZLoader,
   type PZIndexBuilder,
   type PZTask,
@@ -15,6 +16,7 @@ import type {
   PZPKIndexResult,
   PZPKPackResult,
 } from '../../lib/declares'
+import type { PasswordBook } from './pwbook'
 import { config } from './config'
 import { getSender } from './ipc'
 import { AppLogger } from './logger'
@@ -59,7 +61,7 @@ const pushPZLoader = (id: number, loader: PZLoader) => {
   return server
 }
 
-export const openPZloader = (file: string, password: string): PZPKOpenResult => {
+export const openPZloader = (file: string, password: string | Buffer): PZPKOpenResult => {
   const context = PZInstanceNotify.current
   let loader: PZLoader | undefined
 
@@ -83,8 +85,8 @@ export const openPZloader = (file: string, password: string): PZPKOpenResult => 
         version: loader.version,
         description: loader.getDescription(),
         type: loader.type,
-        size: loader.size
-      }
+        size: loader.size,
+      },
     }
   } catch (err) {
     AppLogger.errorStack(err)
@@ -93,6 +95,20 @@ export const openPZloader = (file: string, password: string): PZPKOpenResult => 
     }
 
     return { success: false, message: (err as Error).message }
+  }
+}
+export const tryOpenPZloader = (file: string, book: PasswordBook): PZPKOpenResult => {
+  const context = PZInstanceNotify.current
+  if (context && context.state === 'explorer') {
+    if (file === context.instance.loader.filename) return { success: false, message: 'already opened file' }
+  }
+
+  const matedata = getPZPackFileMate(file)
+  if (book.has(matedata.pwHash)) {
+    const pwr = book.get(matedata.pwHash)!
+    return openPZloader(file, pwr.key)
+  } else {
+    return { success: false, message: 'no matching password' }
   }
 }
 export const loadIndexData = (id: number): PZPKIndexResult => {

@@ -45,15 +45,16 @@ function lazyValue<T>(factory: LazyFactory<T>, readonly?: boolean) {
 
   Object.defineProperties(instance, {
     value: {
-      get () {
+      get() {
         if (innerValue === undefined) innerValue = factory()
         return innerValue
       },
-      set (value) {
-        innerValue = value
+      set(value) {
+        if (!readonly) {
+          innerValue = value
+        }
       },
-      writable: !readonly
-    }
+    },
   })
   return instance
 }

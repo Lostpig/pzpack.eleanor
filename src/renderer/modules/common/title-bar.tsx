@@ -1,4 +1,12 @@
-import React, { useReducer, createContext, useMemo, useContext, type PropsWithChildren, useCallback } from 'react'
+import * as path from 'path'
+import React, {
+  useReducer,
+  createContext,
+  useMemo,
+  useContext,
+  type PropsWithChildren,
+  useCallback,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { MinimizeIcon, MaximizeIcon, WindowizeIcon, CloseIcon, MenuIcon } from '../icons'
 import { mergeCls } from '../../utils'
@@ -10,9 +18,13 @@ import {
   usePZInstance,
   usePZPackService,
   useConfig,
+  usePwBook,
+  usePwBookService,
 } from './hooks'
 import { useSettingDialog } from './setting-dialog'
-import { useOpenFileDialog, useConfirmDialog } from './dialogs'
+import { usePwBookDialog } from './pwbook-dialogs'
+import { useConfirmDialog } from './dialogs'
+import { useOpenFileDialog } from './open-dialog'
 
 type TitleBarContext = {
   toggleMenu: (patch?: boolean) => void
@@ -83,6 +95,13 @@ type TitleMenuItemProps = {
   onActive?: () => void
   text: string
 }
+const TitleMenuSeparator: React.FC = () => {
+  return (
+    <div className="px-2 py-1 box-border">
+      <span className="block w-full h-px bg-gray-300 dark:bg-neutral-500"></span>
+    </div>
+  )
+}
 const TitleMenuItem: React.FC<PropsWithChildren<TitleMenuItemProps>> = (props) => {
   const ctx = useContext(TitleBarCtx)
   const disabled = !!props.disabled
@@ -137,13 +156,42 @@ const ThemeSubMenu = () => {
   )
 }
 
-const TitleMenuSeparator: React.FC = () => {
+const PWBookSubMenu = () => {
+  const [t] = useTranslation()
+  const pwbFile = usePwBook()
+  const { closePasswordBook } = usePwBookService()
+  const { open, openEdit } = usePwBookDialog()
+  const fname = useMemo(() => {
+    return pwbFile ? path.basename(pwbFile) : ''
+  }, [pwbFile])
+
+  const openPwBook = useCallback(
+    async (mode: 'open' | 'create') => {
+      const res = await open(mode)
+      if (res) {
+        res.subscribe((f) => {
+          if (f) openEdit()
+        })
+      }
+    },
+    [open, openEdit],
+  )
+
   return (
-    <div className="px-2 py-1 box-border">
-      <span className="block w-full h-px bg-gray-300 dark:bg-neutral-500"></span>
-    </div>
+    <SubMenu>
+      {pwbFile ? (
+        <>
+          <TitleMenuItem text={fname} onActive={openEdit} />
+          <TitleMenuSeparator />
+        </>
+      ) : null}
+      <TitleMenuItem text={t('open pwbook')} onActive={() => openPwBook('open')} />
+      <TitleMenuItem text={t('create pwbook')} onActive={() => openPwBook('create')} />
+      <TitleMenuItem text={t('close pwbook')} disabled={!pwbFile} onActive={closePasswordBook} />
+    </SubMenu>
   )
 }
+
 const TitleMenu = (props: { hidden: boolean }) => {
   const { hidden } = props
   const [t] = useTranslation()
@@ -210,7 +258,9 @@ const TitleMenu = (props: { hidden: boolean }) => {
       <TitleMenuItem text={t('theme')}>
         <ThemeSubMenu />
       </TitleMenuItem>
-      <TitleMenuItem disabled text={t('password collection')} />
+      <TitleMenuItem text={t('password book')}>
+        <PWBookSubMenu />
+      </TitleMenuItem>
       <TitleMenuSeparator />
       <TitleMenuItem disabled text={t('help')} />
       <TitleMenuItem disabled text={t('about')} />

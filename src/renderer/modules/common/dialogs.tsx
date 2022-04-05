@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next'
 import type { PZSubscription } from 'pzpack'
 import { mergeCls } from 'renderer/utils'
 import { ModalContext } from './modal'
-import { useModalManager, usePZPackService, useIoService } from './hooks'
+import { useModalManager } from './hooks'
 import { InfoIcon } from '../icons'
-import { PZButton, PZPassword, PZText, type PZPasswordRef } from '../shared'
+import { PZButton, PZText } from '../shared'
 
 export const DialogBase: React.FC = (props) => {
   return (
@@ -19,53 +19,6 @@ export const DialogBase: React.FC = (props) => {
         </div>
       </div>
     </>
-  )
-}
-
-type FileDialogProps = {
-  path: string
-}
-const OpenFileDialog = (props: FileDialogProps) => {
-  const [t] = useTranslation()
-  const [msg, setMsg] = useState('')
-  const { closeModal } = useModalManager()
-  const { id } = useContext(ModalContext)
-  const { openPZloader } = usePZPackService()
-  const pwElRef = useRef<PZPasswordRef>(null)
-
-  useEffect(() => {
-    pwElRef.current?.focus()
-  }, [])
-  const openHandler = useCallback(() => {
-    const pw = pwElRef.current?.value ?? ''
-    openPZloader(props.path, pw).then((result) => {
-      if (result.success) closeModal(id)
-      else setMsg(result.message && result.message !== '' ? result.message : 'unknown error')
-    })
-  }, [openPZloader, setMsg, pwElRef.current])
-
-  return (
-    <DialogBase>
-      <div className="flex flex-col">
-        <div className="my-4">
-          <label className="w-16 mr-6 text-right font-bold">{t('file opening')}</label>
-          <span>{props.path}</span>
-        </div>
-        <div className="mb-4 flex flex-row items-center">
-          <label className="w-16 mr-6 text-right font-bold">{t('password')}</label>
-          <PZPassword ref={pwElRef} className="flex-1" onEnter={openHandler} />
-        </div>
-        <div className={mergeCls('mb-4 text-right', msg ? 'block' : 'hidden')}>
-          <span className="text-red-600">{msg}</span>
-        </div>
-        <div className="flex flex-row justify-end">
-          <PZButton type="primary" onClick={openHandler}>
-            {t('ok')}
-          </PZButton>
-          <PZButton onClick={() => closeModal(id)}>{t('cancel')}</PZButton>
-        </div>
-      </div>
-    </DialogBase>
   )
 }
 
@@ -94,7 +47,9 @@ const InfoDialog = (props: InfoDialogProps) => {
           </div>
           <div>
             {textParts.map((s, i) => (
-              <p key={i} className='m-0'>{s}</p>
+              <p key={i} className="m-0">
+                {s}
+              </p>
             ))}
           </div>
         </div>
@@ -193,18 +148,6 @@ export const useSetNamDialog = () => {
     (orgName?: string, caption?: string) => openModal(<SetNameDialog orgName={orgName} caption={caption} />),
     [openModal],
   )
-  return openHandler
-}
-export const useOpenFileDialog = () => {
-  const { openModal } = useModalManager()
-  const { openFile } = useIoService()
-  const openHandler = useCallback(async () => {
-    const file = await openFile()
-    if (file) {
-      openModal(<OpenFileDialog path={file} />)
-    }
-  }, [openFile, openModal])
-
   return openHandler
 }
 export const useInfoDialog = () => {

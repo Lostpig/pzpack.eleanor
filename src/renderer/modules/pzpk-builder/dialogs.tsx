@@ -2,7 +2,7 @@ import React, { useState, useContext, useRef, useEffect, useCallback, memo } fro
 import { useTranslation } from 'react-i18next'
 import type { PZIndexBuilder, BuildProgress } from 'pzpack'
 
-import { mergeCls, formatTime } from '../../utils'
+import { mergeCls, formatTime, defFilters } from '../../utils'
 import { useModalManager, ModalContext, DialogBase, useIoService, useInfoDialog } from '../common'
 import { PZText, PZButton, PZPassword, PZProgress } from '../shared'
 import { useBuilder } from './hooks'
@@ -107,7 +107,7 @@ const ToBuildDialog = memo((props: ToBuildDialogProps) => {
     descRef.current?.focus()
   }, [])
   const saveTarget = useCallback(() => {
-    saveFile().then((f) => {
+    saveFile([defFilters.PZPack]).then((f) => {
       if (f) setTarget(f)
     })
   }, [saveFile])

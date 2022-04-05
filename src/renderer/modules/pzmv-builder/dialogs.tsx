@@ -1,7 +1,7 @@
 import React, { useState, useContext, useRef, useEffect, useCallback, memo, createContext, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PZVideo } from 'pzpack'
-import { mergeCls, formatTime } from '../../utils'
+import { mergeCls, formatTime, defFilters } from '../../utils'
 import { useModalManager, ModalContext, DialogBase, useIoService, useInfoDialog } from '../common'
 import { PZText, PZButton, PZPassword, PZSelect, PZProgress } from '../shared'
 import { useAudioCodec, useVideoCodec, useBuilder } from './hooks'
@@ -351,7 +351,7 @@ const ToBuildDialog = memo(({ indexBuilder }: ToBuildDialogProps) => {
   const [msg, setMsg] = useState('')
   const { closeModal, openModal } = useModalManager()
   const { id } = useContext(ModalContext)
-  const { saveVideo } = useIoService()
+  const { saveFile } = useIoService()
   const [videoCodec, dispatchVideoCodec] = useVideoCodec()
   const [audioCodec, dispatchAudioCodec] = useAudioCodec()
   const context = useMemo(() => ({ dispatchVideoCodec, dispatchAudioCodec }), [dispatchVideoCodec, dispatchAudioCodec])
@@ -363,10 +363,10 @@ const ToBuildDialog = memo(({ indexBuilder }: ToBuildDialogProps) => {
     descRef.current?.focus()
   }, [])
   const saveTarget = useCallback(() => {
-    saveVideo().then((f) => {
+    saveFile([defFilters.PZVideo]).then((f) => {
       if (f) setTarget(f)
     })
-  }, [saveVideo])
+  }, [saveFile])
   const pwFocus = useCallback(() => pwRef.current?.focus(), [pwRef.current])
   const startBuild = useCallback(() => {
     const pw = pwRef.current?.value

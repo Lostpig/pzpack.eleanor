@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { FirstLetterUpper } from '../../utils'
 import type { PackageInfo, Theme } from '../../../lib/declares'
 import { getInfo } from '../../service/global'
-import { openFile, saveFile, openDir, selectFiles, selectVideos, saveVideo } from '../../service/io'
+import { openFile, saveFile, openDir, selectFiles, selectVideos } from '../../service/io'
 import { modalObservable, openModal, closeModal } from '../../service/modal'
 import { setConfig, getConfig, checkFfmpeg, checkExternalPalyer } from '../../service/config'
 import {
@@ -13,6 +13,16 @@ import {
   PZInstanceObservable,
   type PZInstance,
 } from '../../service/pzpack'
+import {
+  openPasswordBook,
+  closePasswordBook,
+  addPassword,
+  deletePassword,
+  getCurrentPasswordBook,
+  pwbookNotify,
+  pwbookUpdater,
+  tryOpenFile
+} from '../../service/pwbook'
 import { subscribeChannel, sendToChannel, invokeIpc } from '../../service/ipc'
 
 export const useNavigate = () => {
@@ -27,7 +37,7 @@ export const useNavigate = () => {
 }
 export const useIoService = () => {
   return useMemo(() => {
-    return { openFile, saveFile, openDir, selectFiles, selectVideos, saveVideo }
+    return { openFile, saveFile, openDir, selectFiles, selectVideos }
   }, [])
 }
 
@@ -67,7 +77,7 @@ export const usePZPackService = () => {
 export const useWindowState = () => {
   const [maximize, setMaximize] = useState(false)
   useEffect(() => {
-    invokeIpc('application:inited', undefined).then(p => {
+    invokeIpc('application:inited', undefined).then((p) => {
       setMaximize(p.maximize)
     })
     const subscription = subscribeChannel('window:changed', (v) => {
@@ -134,4 +144,17 @@ export const useExternalPlayer = () => {
   }, [])
 
   return { openExternalPlayer, checkExternalPlayer }
+}
+export const usePwBook = () => {
+  const [pwbookFile, setPwbookFile] = useState<string>()
+  useEffect(() => {
+    const subscription = pwbookNotify.subscribe((book) => setPwbookFile(book?.filename))
+    return () => subscription.unsubscribe()
+  }, [])
+  return pwbookFile
+}
+export const usePwBookService = () => {
+  return useMemo(() => {
+    return { openPasswordBook, closePasswordBook, addPassword, deletePassword, getCurrentPasswordBook, tryOpenFile, pwbookUpdater }
+  }, [])
 }
