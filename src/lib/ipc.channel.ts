@@ -24,9 +24,9 @@ export interface RendererChannels {
   'theme:changed': Theme
   'dev:reloadcss': void
 
-  'pzpk:building': { id: number; progress: BuildProgress }
-  'pzpk:mvbuilding': { id: number; progress: PZVideo.PZMVProgress }
-  'pzpk:buildcomplete': { id: number; canceled: boolean }
+  'pzpk:building': { hash: string; progress: BuildProgress }
+  'pzpk:mvbuilding': { hash: string; progress: PZVideo.PZMVProgress }
+  'pzpk:buildcomplete': { hash: string; canceled: boolean }
 
   'pwbook:update': { items: string[] }
 }
@@ -67,9 +67,9 @@ interface IPCInvokes {
   'operate:openfolder': [void, string]
 
   'pzpk:open': [{ filename: string; password: string }, PZPKOpenResult]
-  'pzpk:close': [number, void]
+  'pzpk:close': [string, void]
   'pzpk:pack': [PZPKPackArgs, PZPKPackResult]
-  'pzpk:getIndex': [number, PZPKIndexResult]
+  'pzpk:getIndex': [string, PZPKIndexResult]
 
   'pwbook:close': [void, PZPKBaseResult]
   'pwbook:current': [void, PWBookResult]

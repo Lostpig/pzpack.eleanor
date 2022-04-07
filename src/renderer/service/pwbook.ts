@@ -42,5 +42,5 @@ export const tryOpenFile = async (file: string) => {
   const result = await invokeIpc('pwbook:tryopen', file)
   if (!result.success) return result
 
-  return await bindingPZloader(result.id, result.port, result.loaderStatus)
+  return await bindingPZloader(result.hash, result.port, result.loaderStatus)
 }

@@ -7,7 +7,6 @@
   "close": "关闭",
   "theme": "主题",
   "user collection": "用户合集",
-  "password collection": "密码本",
   "help": "帮助",
   "about": "关于",
   "exit": "退出",
@@ -59,6 +58,8 @@
   "password cannot be empty": "密码不能为空",
   "save target cannot be empty": "保存路径不能为空",
   "save to": "保存到",
+  "play": "播放",
+  "play all": "全部播放",
 
   "file": "文件",
   "complete": "完成",
@@ -85,5 +86,14 @@
   "temp directory": "临时文件夹",
   "external player": "外部播放器",
   "save": "保存",
-  "not support codec try to use external player": "不支持的视频格式\r\n尝试使用外部播放器打开"
+  "not support codec try to use external player": "不支持的视频格式\r\n尝试使用外部播放器打开",
+
+  "password book": "密码本",
+  "open pwbook": "载入密码本",
+  "create pwbook": "创建密码本",
+  "close pwbook": "关闭密码本",
+  "master password": "主密码",
+  "add": "添加",
+  "add password": "添加密码",
+  "random password": "生成随机密码"
 }

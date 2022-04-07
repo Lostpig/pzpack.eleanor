@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { deserializeIndex, PZVideo, type PZSubscription } from 'pzpack'
+import { type PZSubscription } from 'pzpack'
 import { AppLogger } from '../utils/logger'
 import { config } from '../utils/config'
 import { getReceiver, registerInvoke, unregisterInvoke } from '../utils/ipc'
@@ -28,12 +28,10 @@ const registerPZPKHandlers = () => {
   registerInvoke('pzpk:pack', (data) => {
     if (data.type === 'PZPACK') {
       const { options, indexData } = data
-      const ib = deserializeIndex(indexData)
-      return startPZBuild(ib, options)
+      return startPZBuild(indexData, options)
     } else {
       const { options, indexData, target } = data
-      const ib = PZVideo.deserializeMvIndex(indexData)
-      return startPZMVBuild(target, ib, options)
+      return startPZMVBuild(target, indexData, options)
     }
   })
   registerInvoke('pzpk:getIndex', (id) => {

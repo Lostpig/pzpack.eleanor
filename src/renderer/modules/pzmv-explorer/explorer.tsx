@@ -4,9 +4,9 @@ import type { PZFolder, PZIndexReader } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
 
 import type { PZLoaderStatus } from '../../../lib/declares'
-import { FiletypeIcon } from '../icons'
+import { FiletypeIcon, InfoIcon } from '../icons'
 import { useModalManager, useExternalPlayer, useInfoDialog } from '../common'
-import { formatSize, formatTime, parseVideoTime, createUrl } from '../../utils'
+import { formatSize, formatTime, parseVideoTime, createUrl, createFileUrl } from '../../utils'
 import { VideoPlayer } from './video-player'
 import { PZButton } from '../shared'
 
@@ -14,6 +14,7 @@ type ExplorerContextType = {
   indices: PZIndexReader
   status: PZLoaderStatus
   port: number
+  hash: string
   openVideoPlayer: (video: PZFolder) => void
 }
 const ExplorerContext = createContext({} as ExplorerContextType)
@@ -21,10 +22,42 @@ const ExplorerContext = createContext({} as ExplorerContextType)
 const ExplorerInfoSeparator = () => {
   return <div className="mx-3 w-px h-4/5 bg-neutral-400"></div>
 }
+const ExplorerHeader: React.FC = memo(() => {
+  const { status, port, hash } = useContext(ExplorerContext)
+  const [t] = useTranslation()
+  const info = useInfoDialog()
+  const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
+  const showDesc = useCallback(() => {
+    info(status.description, t('file description'))
+  }, [status, info, t])
+  const playAll = useCallback(() => {
+    checkExternalPlayer().then((exists) => {
+      if (exists) {
+        const url = createUrl(port, hash, 'playlist.pls')
+        openExternalPlayer(url)
+      } else {
+        info(t('external player not setted'), t('warning'), 'warning')
+      }
+    })
+  }, [checkExternalPlayer, openExternalPlayer, port, hash])
+
+  return (
+    <div className="py-1 px-3 flex items-center justify-start shadow-sm dark:shadow-black">
+      <PZButton type="icon" onClick={showDesc}>
+        <InfoIcon size={20} />
+      </PZButton>
+      <ExplorerInfoSeparator />
+      <PZButton type="link" onClick={playAll}>
+        {t('play all')}
+      </PZButton>
+    </div>
+  )
+})
+
 const ExolorerVideo: React.FC<{ folder: PZFolder }> = memo(({ folder }) => {
   const [t] = useTranslation()
   const [time, setTime] = useState(formatTime(0))
-  const { openVideoPlayer, port } = useContext(ExplorerContext)
+  const { openVideoPlayer, port, hash } = useContext(ExplorerContext)
   const info = useInfoDialog()
   const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
   const openVideo = useCallback(() => {
@@ -33,19 +66,19 @@ const ExolorerVideo: React.FC<{ folder: PZFolder }> = memo(({ folder }) => {
   const openExPlayer = useCallback(() => {
     checkExternalPlayer().then((exists) => {
       if (exists) {
-        const url = createUrl(port, folder.id, 'play.mpd')
+        const url = createFileUrl(port, hash, folder.id, 'play.mpd')
         openExternalPlayer(url)
       } else {
         info(t('external player not setted'), t('warning'), 'warning')
       }
     })
-  }, [checkExternalPlayer, openExternalPlayer, folder])
+  }, [checkExternalPlayer, openExternalPlayer, folder, port, hash])
 
   useEffect(() => {
-    parseVideoTime(port, folder).then((vtime) => {
+    parseVideoTime(port, hash, folder).then((vtime) => {
       setTime(formatTime(vtime))
     })
-  }, [port, folder.id])
+  }, [port, hash, folder.id])
 
   return (
     <div
@@ -68,7 +101,7 @@ const ExplorerList: React.FC = memo(() => {
   const { folders } = indices.getChildren(indices.root)
 
   return (
-    <div className="flex-1 auto-scrollbar">
+    <div className="flex-1 auto-scrollbar py-2">
       {folders
         .sort((a, b) => naturalCompare(a.name, b.name))
         .map((f) => (
@@ -101,19 +134,21 @@ const ExplorerInfo: React.FC = memo(() => {
 
 type PZVideoExplorerProps = {
   indices: PZIndexReader
+  hash: string
   port: number
   status: PZLoaderStatus
 }
 export const PZVideoExplorer: React.FC<PZVideoExplorerProps> = memo((props) => {
-  const { indices, port, status } = props
+  const { indices, port, status, hash } = props
   const { openModal } = useModalManager()
   const openVideoPlayer = (video: PZFolder) => {
-    openModal(<VideoPlayer video={video} port={port} />)
+    openModal(<VideoPlayer hash={hash} video={video} port={port} />)
   }
 
   return (
-    <div className="w-full h-full flex flex-col pt-4">
-      <ExplorerContext.Provider value={{ indices, port, status, openVideoPlayer }}>
+    <div className="w-full h-full flex flex-col">
+      <ExplorerContext.Provider value={{ indices, port, hash, status, openVideoPlayer }}>
+        <ExplorerHeader />
         <ExplorerList />
         <ExplorerInfo />
       </ExplorerContext.Provider>

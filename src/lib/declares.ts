@@ -35,7 +35,7 @@ export interface PZLoaderStatus {
 
 type PZPKOpenSuccess = {
   success: true
-  id: number
+  hash: string
   port: number
   loaderStatus: PZLoaderStatus
 }
@@ -45,7 +45,7 @@ type PZPKIndexSuccess = {
 }
 type PZPKPackSuccess = {
   success: true
-  id: number
+  hash: string
 }
 type PZPKFailedResult = {
   success: false

@@ -1,9 +1,9 @@
 import type { PZFilePacked, PZFolder } from 'pzpack'
 import { parseStringPromise } from 'xml2js'
 import { default as parseXsdDuration } from 'parse-xsd-duration'
-import { formatTime, createUrl } from '../lib/utils'
+import { formatTime, createUrl, createFileUrl } from '../lib/utils'
 
-export { formatTime, createUrl }
+export { formatTime, createUrl, createFileUrl }
 
 export const mergeCls = (...cls: (string | undefined | boolean)[]) => {
   return cls.filter((c) => typeof c === 'string').join(' ')
@@ -29,8 +29,8 @@ export const FirstLetterUpper = (str: string) => {
   return str[0].toUpperCase() + str.slice(1)
 }
 
-export const parseVideoTime = async (port: number, videoFolder: PZFolder) => {
-  const url = createUrl(port, videoFolder.id, 'output.mpd')
+export const parseVideoTime = async (port: number, hash: string, videoFolder: PZFolder) => {
+  const url = createFileUrl(port, hash, videoFolder.id, 'output.mpd')
   const resp = await fetch(url)
   const xmlText = await resp.text()
   const xmlObj = await parseStringPromise(xmlText)

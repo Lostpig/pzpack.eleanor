@@ -332,12 +332,13 @@ const ViewerContent: React.FC = () => {
 
 interface ImageViewerProps {
   port: number
+  hash: string
   indices: PZIndexReader
   folder: PZFolder
   initFile: PZFilePacked
 }
 export const ImageViewer: React.FC<ImageViewerProps> = memo((props) => {
-  const context = useImageContext(props.port, props.indices, props.folder, props.initFile)
+  const context = useImageContext(props.port, props.hash, props.indices, props.folder, props.initFile)
 
   return (
     <ImageViewerContext.Provider value={context}>

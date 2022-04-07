@@ -1,7 +1,7 @@
 import { createContext, useCallback, useMemo, useReducer } from 'react'
 import naturalCompare from 'natural-compare-lite'
 import type { PZFilePacked, PZFolder, PZIndexReader } from 'pzpack'
-import { isImageFile, createUrl } from '../../utils'
+import { isImageFile, createFileUrl } from '../../utils'
 import type { PZLoaderStatus } from '../../../lib/declares'
 
 export interface ExplorerContextType {
@@ -22,10 +22,6 @@ export interface ImageViewerContextType {
   getFile: (index: number) => PZFilePacked
 }
 export const ImageViewerContext = createContext<ImageViewerContextType>({} as ImageViewerContextType)
-
-const imageUrl = (port: number, file: PZFilePacked) => {
-  return createUrl(port, file.pid, file.name)
-}
 
 type IndexChangePayload = {
   action: 'next' | 'prev' | 'goto'
@@ -51,7 +47,7 @@ const indexReducer = (prev: number, payload: IndexChangePayload) => {
   if (result < 0) result = 0
   return result
 }
-export const useImageContext = (port: number, indices: PZIndexReader, folder: PZFolder, initedFile: PZFilePacked) => {
+export const useImageContext = (port: number, hash: string, indices: PZIndexReader, folder: PZFolder, initedFile: PZFilePacked) => {
   const { index: initIndex, list } = useMemo(() => {
     const imageList = indices
       .getChildren(folder)
@@ -73,7 +69,7 @@ export const useImageContext = (port: number, indices: PZIndexReader, folder: PZ
   const getImage = useCallback(
     (target: number) => {
       const file = list[target]
-      return imageUrl(port, file)
+      return createFileUrl(port, hash, file.pid, file.name)
     },
     [port, list],
   )

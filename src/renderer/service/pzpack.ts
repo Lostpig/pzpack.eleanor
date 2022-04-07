@@ -17,7 +17,7 @@ interface PZMVBuilderInstance extends PZInstanceBase {
 }
 interface PZLoaderInstance extends PZInstanceBase {
   type: 'loader' | 'mvloader'
-  id: number
+  hash: string
   binding: PZIndexReader
   port: number
   status: PZLoaderStatus
@@ -27,8 +27,8 @@ export type PZInstance = PZBuilderInstance | PZMVBuilderInstance | PZLoaderInsta
 const PZInstanceNotify = new PZSubscription.PZBehaviorNotify<PZInstance | undefined>(undefined)
 export const PZInstanceObservable = PZInstanceNotify.asObservable()
 
-export const bindingPZloader = async (id: number, port: number, status: PZLoaderStatus) => {
-  const idxResult = await invokeIpc('pzpk:getIndex', id)
+export const bindingPZloader = async (hash: string, port: number, status: PZLoaderStatus) => {
+  const idxResult = await invokeIpc('pzpk:getIndex', hash)
   if (!idxResult.success) return idxResult
   const indices = new PZIndexReader()
   const idxBuffer = Buffer.from(idxResult.data, idxResult.data.byteOffset, idxResult.data.byteLength)
@@ -38,7 +38,7 @@ export const bindingPZloader = async (id: number, port: number, status: PZLoader
   PZInstanceNotify.next({
     type: instType,
     binding: indices,
-    id: id,
+    hash,
     port: port,
     status: status,
   })
@@ -51,13 +51,13 @@ export const openPZloader = async (
 ): Promise<{ success: boolean; message?: string }> => {
   const result = await invokeIpc('pzpk:open', { filename, password })
   if (!result.success) return result
-  return await bindingPZloader(result.id, result.port, result.loaderStatus)
+  return await bindingPZloader(result.hash, result.port, result.loaderStatus)
 }
 export const closePZInstance = async () => {
   const current = PZInstanceNotify.current
   if (current) {
     if (current.type === 'loader' || current.type === 'mvloader') {
-      await invokeIpc('pzpk:close', current.id)
+      await invokeIpc('pzpk:close', current.hash)
     }
     PZInstanceNotify.next(undefined)
   }
@@ -68,22 +68,22 @@ export type IPCTask<T> = {
   complete: Promise<{ canceled: boolean }>
   cancel: () => Promise<void>
 }
-const createBuildingTask = (id: number) => {
+const createBuildingTask = (hash: string) => {
   const addReporter = (handler: (progress: BuildProgress) => void) => {
     return subscribeChannel('pzpk:building', (p) => {
-      if (p.id === id) handler(p.progress)
+      if (p.hash === hash) handler(p.progress)
     })
   }
   const complete = new Promise<{ canceled: boolean }>((res) => {
     const subscription = subscribeChannel('pzpk:buildcomplete', (c) => {
-      if (c.id === id) {
+      if (c.hash === hash) {
         subscription.unsubscribe()
         res({ canceled: c.canceled })
       }
     })
   })
   const cancel = async () => {
-    await invokeIpc('pzpk:close', id)
+    await invokeIpc('pzpk:close', hash)
   }
 
   const task: IPCTask<BuildProgress> = {
@@ -115,28 +115,28 @@ export const startPZBuild = async (
 
   const result = await invokeIpc('pzpk:pack', args)
   if (result.success) {
-    return createBuildingTask(result.id)
+    return createBuildingTask(result.hash)
   } else {
     return result
   }
 }
 
-const createMvBuildingTask = (id: number) => {
+const createMvBuildingTask = (hash: string) => {
   const addReporter = (handler: (progress: PZVideo.PZMVProgress) => void) => {
     return subscribeChannel('pzpk:mvbuilding', (p) => {
-      if (p.id === id) handler(p.progress)
+      if (p.hash === hash) handler(p.progress)
     })
   }
   const complete = new Promise<{ canceled: boolean }>((res) => {
     const subscription = subscribeChannel('pzpk:buildcomplete', (c) => {
-      if (c.id === id) {
+      if (c.hash === hash) {
         subscription.unsubscribe()
         res({ canceled: c.canceled })
       }
     })
   })
   const cancel = async () => {
-    await invokeIpc('pzpk:close', id)
+    await invokeIpc('pzpk:close', hash)
   }
 
   const task: IPCTask<PZVideo.PZMVProgress> = {
@@ -178,7 +178,7 @@ export const startPZMVBuild = async (
 
   const result = await invokeIpc('pzpk:pack', args)
   if (result.success) {
-    return createMvBuildingTask(result.id)
+    return createMvBuildingTask(result.hash)
   } else {
     return result
   }

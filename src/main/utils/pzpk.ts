@@ -4,8 +4,9 @@ import {
   PZBuilder,
   PZVideo,
   getPZPackFileMate,
+  PZHelper,
+  deserializeIndex,
   type PZLoader,
-  type PZIndexBuilder,
   type PZTask,
   type BuildProgress,
 } from 'pzpack'
@@ -20,16 +21,14 @@ import type { PasswordBook } from './pwbook'
 import { config } from './config'
 import { getSender } from './ipc'
 import { AppLogger } from './logger'
+import { instance as pzServer } from './pzpk.server'
 
-const idCounter = (() => {
-  let i = 1
-  return () => i++
-})()
+const serverPort = 42506
 
 interface PZContext {
   state: 'building' | 'mvbuilding' | 'explorer'
-  id: number
-  instance: PZTask.AsyncTask<BuildProgress> | PZTask.AsyncTask<PZVideo.PZMVProgress> | PZVideo.PZMVSimpleServer
+  hash: string
+  instance: PZTask.AsyncTask<BuildProgress> | PZTask.AsyncTask<PZVideo.PZMVProgress> | PZLoader
 }
 interface PZContextBuilding extends PZContext {
   state: 'building'
@@ -41,7 +40,7 @@ interface PZContextMVBuilding extends PZContext {
 }
 interface PZContextExplorer extends PZContext {
   state: 'explorer'
-  instance: PZVideo.PZMVSimpleServer
+  instance: PZLoader
 }
 type PZContexts = PZContextBuilding | PZContextMVBuilding | PZContextExplorer
 
@@ -50,36 +49,36 @@ const PZInstanceNotify = new PZSubscription.PZBehaviorNotify<PZContexts | undefi
 const closeInstance = (context: PZContexts) => {
   if (context.state === 'explorer') {
     context.instance.close()
-    context.instance.loader.close()
   } else {
     context.instance.cancel()
   }
 }
-const pushPZLoader = (id: number, loader: PZLoader) => {
-  const server = new PZVideo.PZMVSimpleServer(loader)
-  PZInstanceNotify.next({ state: 'explorer', id, instance: server })
-  return server
+const pushPZLoader = (hash: string, loader: PZLoader) => {
+  pzServer.binding(hash, loader)
+  PZInstanceNotify.next({ state: 'explorer', hash, instance: loader })
 }
 
-export const openPZloader = (file: string, password: string | Buffer): PZPKOpenResult => {
+export const openPZloader = async (file: string, password: string | Buffer): Promise<PZPKOpenResult> => {
   const context = PZInstanceNotify.current
   let loader: PZLoader | undefined
 
   try {
     if (context && context.state === 'explorer') {
-      if (file === context.instance.loader.filename) return { success: false, message: 'already opened file' }
+      if (file === context.instance.filename) return { success: false, message: 'already opened file' }
     }
 
-    const id = idCounter()
     loader = OpenPzFile(file, password)
+    const hashData = Buffer.concat([loader.loadIndexBuffer(), Buffer.from(file, 'utf-8')])
+    const hash = PZHelper.sha256Hex(hashData)
+
     if (context) closeInstance(context)
-    const server = pushPZLoader(id, loader)
-    server.start()
+    pushPZLoader(hash, loader)
+    await pzServer.start(serverPort)
 
     return {
       success: true,
-      id,
-      port: server.port,
+      hash,
+      port: serverPort,
       loaderStatus: {
         filename: loader.filename,
         version: loader.version,
@@ -97,10 +96,10 @@ export const openPZloader = (file: string, password: string | Buffer): PZPKOpenR
     return { success: false, message: (err as Error).message }
   }
 }
-export const tryOpenPZloader = (file: string, book: PasswordBook): PZPKOpenResult => {
+export const tryOpenPZloader = (file: string, book: PasswordBook): Promise<PZPKOpenResult> | PZPKOpenResult => {
   const context = PZInstanceNotify.current
   if (context && context.state === 'explorer') {
-    if (file === context.instance.loader.filename) return { success: false, message: 'already opened file' }
+    if (file === context.instance.filename) return { success: false, message: 'already opened file' }
   }
 
   const matedata = getPZPackFileMate(file)
@@ -111,10 +110,10 @@ export const tryOpenPZloader = (file: string, book: PasswordBook): PZPKOpenResul
     return { success: false, message: 'no matching password' }
   }
 }
-export const loadIndexData = (id: number): PZPKIndexResult => {
+export const loadIndexData = (hash: string): PZPKIndexResult => {
   const context = PZInstanceNotify.current
-  if (context?.state === 'explorer' && context.id === id) {
-    const loader = context.instance.loader
+  if (context?.state === 'explorer' && context.hash === hash) {
+    const loader = context.instance
     const idxBuf = loader.loadIndexBuffer()
 
     return { success: true, data: idxBuf }
@@ -123,15 +122,16 @@ export const loadIndexData = (id: number): PZPKIndexResult => {
   }
 }
 
-export const closePZInstance = (id: number) => {
+export const closePZInstance = (hash: string) => {
   const current = PZInstanceNotify.current
 
-  if (current && current.id === id) {
+  if (current && current.hash === hash) {
     closeInstance(current)
     PZInstanceNotify.next(undefined)
   }
 }
-export const startPZBuild = (indexBuilder: PZIndexBuilder, options: PZBuildOptions): PZPKPackResult => {
+export const startPZBuild = (indexData: string, options: PZBuildOptions): PZPKPackResult => {
+  const indexBuilder = deserializeIndex(indexData)
   const builder = new PZBuilder({
     type: 'PZPACK',
     indexBuilder,
@@ -139,39 +139,37 @@ export const startPZBuild = (indexBuilder: PZIndexBuilder, options: PZBuildOptio
   })
   builder.setDescription(options.desc)
 
+  const hash = PZHelper.sha256Hex(indexData)
   const task = builder.buildTo(options.target)
-  const id = idCounter()
 
   const sender = getSender('pzpk:building')
   const completer = getSender('pzpk:buildcomplete')
-  task.addReporter((p) => sender.send({ id, progress: p }))
+  task.addReporter((p) => sender.send({ hash, progress: p }))
   task.complete.then((p) => {
-    completer.send({ id, canceled: p.isCanceled })
+    completer.send({ hash, canceled: p.isCanceled })
   })
 
-  return { success: true, id }
+  return { success: true, hash }
 }
-export const startPZMVBuild = (
-  target: string,
-  indexBuilder: PZVideo.PZMVIndexBuilder,
-  options: PZMVBuildOptions,
-): PZPKPackResult => {
+export const startPZMVBuild = (target: string, indexData: string, options: PZMVBuildOptions): PZPKPackResult => {
   const ffmpegDir = config.get('ffmpeg')
   const tempDir = config.get('tempDir')
 
   if (!ffmpegDir) throw new Error('ffmpeg not setted')
   if (!tempDir) throw new Error('temp directory not setted')
 
+  const indexBuilder = PZVideo.deserializeMvIndex(indexData)
   const builder = new PZVideo.PZMVBuilder({ indexBuilder, ffmpegDir, tempDir, ...options })
+
+  const hash = PZHelper.sha256Hex(indexData)
   const task = builder.buildTo(target)
-  const id = idCounter()
 
   const sender = getSender('pzpk:mvbuilding')
   const completer = getSender('pzpk:buildcomplete')
-  task.addReporter((p) => sender.send({ id, progress: p }))
+  task.addReporter((p) => sender.send({ hash, progress: p }))
   task.complete.then((p) => {
-    completer.send({ id, canceled: p.isCanceled })
+    completer.send({ hash, canceled: p.isCanceled })
   })
 
-  return { success: true, id }
+  return { success: true, hash }
 }

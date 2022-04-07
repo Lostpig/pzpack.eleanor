@@ -10,9 +10,9 @@ export const RoutesContainer = () => {
   const content = useMemo(() => {
     if (!instance) return <WhitePage />
     if (instance.type === 'loader')
-      return <PZFileExplorer indices={instance.binding} port={instance.port} status={instance.status} />
+      return <PZFileExplorer hash={instance.hash} indices={instance.binding} port={instance.port} status={instance.status} />
     if (instance.type === 'mvloader')
-      return <PZVideoExplorer indices={instance.binding} port={instance.port} status={instance.status} />
+      return <PZVideoExplorer hash={instance.hash} indices={instance.binding} port={instance.port} status={instance.status} />
     if (instance.type === 'builder') return <PZPackBuilder builder={instance.binding} />
     if (instance.type === 'mvbuilder') return <PZMVBuilder builder={instance.binding} />
 

@@ -148,11 +148,12 @@ const ExplorerContent = () => {
 
 type PZFileExplorerProps = {
   indices: PZIndexReader
+  hash: string
   port: number
   status: PZLoaderStatus
 }
 export const PZFileExplorer: React.FC<PZFileExplorerProps> = memo((props) => {
-  const { indices, port, status } = props
+  const { indices, port, status, hash } = props
   const { openModal } = useModalManager()
 
   const openImage = (file: PZFilePacked) => {
@@ -161,7 +162,7 @@ export const PZFileExplorer: React.FC<PZFileExplorerProps> = memo((props) => {
     const folder = indices.getFolder(file.pid)
     if (!folder) return
 
-    openModal(<ImageViewer port={port} indices={indices} folder={folder} initFile={file} />)
+    openModal(<ImageViewer hash={hash} port={port} indices={indices} folder={folder} initFile={file} />)
   }
 
   return (

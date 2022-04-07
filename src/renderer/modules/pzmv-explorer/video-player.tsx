@@ -6,9 +6,9 @@ import { MediaPlayer } from 'dashjs'
 import { ModalContext, useModalManager, useExternalPlayer, useInfoDialog } from '../common'
 import { PZButton } from '../shared'
 import { CloseLargeIcon } from '../icons'
-import { createUrl } from '../../utils'
+import { createFileUrl } from '../../utils'
 
-export const VideoPlayer: React.FC<{ port: number, video: PZFolder }> = ({ port, video }) => {
+export const VideoPlayer: React.FC<{ port: number, hash: string, video: PZFolder }> = ({ port, hash, video }) => {
   const [t] = useTranslation()
   const ref = useRef<HTMLVideoElement>(null)
   const { id } = useContext(ModalContext)
@@ -18,7 +18,7 @@ export const VideoPlayer: React.FC<{ port: number, video: PZFolder }> = ({ port,
 
   useEffect(() => {
     if (ref.current) {
-      const url = createUrl(port, video.id, 'play.mpd')
+      const url = createFileUrl(port, hash, video.id, 'play.mpd')
       const player = MediaPlayer().create()
 
       let errorShowed = false
@@ -39,7 +39,7 @@ export const VideoPlayer: React.FC<{ port: number, video: PZFolder }> = ({ port,
   const openExPlayer = useCallback(() => {
     checkExternalPlayer().then((exists) => {
       if (exists) {
-        const url = createUrl(port, video.id, 'play.mpd')
+        const url = createFileUrl(port, hash, video.id, 'play.mpd')
         openExternalPlayer(url)
         if (ref.current) ref.current.pause()
       } else {
