@@ -2,9 +2,17 @@ import React, { useState, useEffect, useRef, useContext, useCallback, memo } fro
 import { useTranslation } from 'react-i18next'
 import { mergeCls, defFilters, randomPassword } from '../../utils'
 import { ModalContext } from './modal'
-import { useModalManager, useIoService, usePwBookService } from './hooks'
 import { PZButton, PZPassword, type PZPasswordRef } from '../shared'
 import { DialogBase } from './dialogs'
+import { openModal, closeModal } from '../../service/modal'
+import {
+  openPasswordBook,
+  addPassword,
+  pwbookUpdater,
+  deletePassword,
+  getCurrentPasswordBook,
+} from '../../service/pwbook'
+import { openFile, saveFile } from '../../service/io'
 
 type PwBookDialogProps = {
   mode: 'open' | 'create'
@@ -13,9 +21,7 @@ type PwBookDialogProps = {
 const OpenPwBookDialog = (props: PwBookDialogProps) => {
   const [t] = useTranslation()
   const [msg, setMsg] = useState('')
-  const { closeModal } = useModalManager()
   const { id } = useContext(ModalContext)
-  const { openPasswordBook } = usePwBookService()
   const pwElRef = useRef<PZPasswordRef>(null)
 
   useEffect(() => {
@@ -29,7 +35,7 @@ const OpenPwBookDialog = (props: PwBookDialogProps) => {
       if (result.success) closeModal(id, result.filename)
       else setMsg(result.message && result.message !== '' ? result.message : 'unknown error')
     })
-  }, [openPasswordBook, setMsg, pwElRef.current])
+  }, [setMsg, pwElRef.current])
 
   return (
     <DialogBase>
@@ -59,9 +65,7 @@ const OpenPwBookDialog = (props: PwBookDialogProps) => {
 const AddPassowrdDialog = () => {
   const [t] = useTranslation()
   const [msg, setMsg] = useState('')
-  const { closeModal } = useModalManager()
   const { id } = useContext(ModalContext)
-  const { addPassword } = usePwBookService()
   const pwElRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -94,7 +98,9 @@ const AddPassowrdDialog = () => {
           <label className="text-xl font-bold">{t('add password')}</label>
         </div>
         <div className="mb-4 flex flex-row items-center">
-          <PZButton type="primary" onClick={randomHandler}>{t('random password')}</PZButton>
+          <PZButton type="primary" onClick={randomHandler}>
+            {t('random password')}
+          </PZButton>
         </div>
         <div className="mb-4 flex flex-row items-center">
           <PZPassword ref={pwElRef} className="flex-1" onEnter={() => closeHandler(true)} />
@@ -138,10 +144,8 @@ type PwBookEditDialogProps = {
 }
 const PwBookEditDialog: React.FC<PwBookEditDialogProps> = (props) => {
   const [t] = useTranslation()
-  const { closeModal, openModal } = useModalManager()
   const { id } = useContext(ModalContext)
   const [list, setList] = useState<string[]>(props.items)
-  const { pwbookUpdater, deletePassword } = usePwBookService()
   const addHandler = () => {
     openModal(<AddPassowrdDialog />)
   }
@@ -150,9 +154,8 @@ const PwBookEditDialog: React.FC<PwBookEditDialogProps> = (props) => {
     const subscription = pwbookUpdater.subscribe((items) => {
       setList(items)
     })
-
     return () => subscription.unsubscribe()
-  }, [pwbookUpdater])
+  }, [])
 
   return (
     <DialogBase>
@@ -181,10 +184,6 @@ const PwBookEditDialog: React.FC<PwBookEditDialogProps> = (props) => {
 }
 
 export const usePwBookDialog = () => {
-  const { openModal } = useModalManager()
-  const { openFile, saveFile } = useIoService()
-  const { getCurrentPasswordBook } = usePwBookService()
-
   const openHandler = useCallback(
     async (mode: 'open' | 'create') => {
       let file
@@ -200,7 +199,7 @@ export const usePwBookDialog = () => {
         return undefined
       }
     },
-    [openFile, saveFile, openModal],
+    [],
   )
   const editHandler = useCallback(async () => {
     const current = await getCurrentPasswordBook()
@@ -208,7 +207,7 @@ export const usePwBookDialog = () => {
     if (current.success) {
       openModal(<PwBookEditDialog items={current.items} />)
     }
-  }, [getCurrentPasswordBook, openModal])
+  }, [])
 
   return { open: openHandler, openEdit: editHandler }
 }

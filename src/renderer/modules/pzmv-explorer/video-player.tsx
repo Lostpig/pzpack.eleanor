@@ -3,16 +3,16 @@ import { useTranslation } from 'react-i18next'
 import type { PZFolder } from 'pzpack'
 import { MediaPlayer } from 'dashjs'
 
-import { ModalContext, useModalManager, useExternalPlayer, useInfoDialog } from '../common'
+import { ModalContext, useExternalPlayer, useInfoDialog } from '../common'
 import { PZButton } from '../shared'
 import { CloseLargeIcon } from '../icons'
 import { createFileUrl } from '../../utils'
+import { closeModal } from '../../service/modal'
 
 export const VideoPlayer: React.FC<{ port: number, hash: string, video: PZFolder }> = ({ port, hash, video }) => {
   const [t] = useTranslation()
   const ref = useRef<HTMLVideoElement>(null)
   const { id } = useContext(ModalContext)
-  const { closeModal } = useModalManager()
   const info = useInfoDialog()
   const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
 

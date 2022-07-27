@@ -13,14 +13,15 @@ const pwBookSign = lazyValue(() => {
   const signHex = PZHelper.bytesToHex(sign)
   return { sign, signHex }
 })
+const { PZSubject } = PZSubscription
 
 class PasswordBook {
   readonly filename: string
   private crypto: PZCryptos.PZCrypto
   private map = new Map<string, PWRecord>()
-  private notify: PZSubscription.PZNotify<string[]> = new PZSubscription.PZNotify()
+  private subject = new PZSubject<string[]>()
   get updater() {
-    return this.notify.asObservable()
+    return this.subject.asObservable()
   }
   private initBook(data?: Buffer) {
     const bookMap = new Map<string, PWRecord>()
@@ -43,7 +44,7 @@ class PasswordBook {
 
     this.updateFlag = true
     nextTick().then(() => {
-      this.notify.next(this.items())
+      this.subject.next(this.items())
       this.updateFlag = false
     })
   }
@@ -113,7 +114,7 @@ class PasswordBook {
   }
   async close() {
     await this.save()
-    this.notify.complete()
+    this.subject.complete()
   }
 }
 

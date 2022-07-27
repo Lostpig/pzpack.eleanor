@@ -26,6 +26,7 @@ export interface RendererChannels {
 
   'pzpk:building': { hash: string; progress: BuildProgress }
   'pzpk:mvbuilding': { hash: string; progress: PZVideo.PZMVProgress }
+  'pzpk:builderror': { hash: string; error: string }
   'pzpk:buildcomplete': { hash: string; canceled: boolean }
 
   'pwbook:update': { items: string[] }

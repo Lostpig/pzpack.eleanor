@@ -4,7 +4,7 @@ export { WhitePage } from './white-page'
 export { ErrorPage } from './error-page'
 export { LoadingPage } from './loading'
 
-export { usePZInstance, useModalManager, useIoService, useExternalPlayer } from './hooks'
+export { usePZInstance, useExternalPlayer } from './hooks'
 export { DialogBase, useInfoDialog, useSetNamDialog } from './dialogs'
 export { useOpenFileDialog } from './open-dialog'
 export { useSettingDialog } from './setting-dialog'

@@ -5,10 +5,11 @@ import naturalCompare from 'natural-compare-lite'
 
 import type { PZLoaderStatus } from '../../../lib/declares'
 import { FiletypeIcon, InfoIcon } from '../icons'
-import { useModalManager, useExternalPlayer, useInfoDialog } from '../common'
+import { useExternalPlayer, useInfoDialog } from '../common'
 import { formatSize, formatTime, parseVideoTime, createUrl, createFileUrl } from '../../utils'
 import { VideoPlayer } from './video-player'
 import { PZButton } from '../shared'
+import { openModal } from '../../service/modal'
 
 type ExplorerContextType = {
   indices: PZIndexReader
@@ -140,7 +141,6 @@ type PZVideoExplorerProps = {
 }
 export const PZVideoExplorer: React.FC<PZVideoExplorerProps> = memo((props) => {
   const { indices, port, status, hash } = props
-  const { openModal } = useModalManager()
   const openVideoPlayer = (video: PZFolder) => {
     openModal(<VideoPlayer hash={hash} video={video} port={port} />)
   }

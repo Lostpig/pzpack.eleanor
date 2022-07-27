@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next'
 import type { PZIndexBuilder, BuildProgress } from 'pzpack'
 
 import { mergeCls, formatTime, defFilters } from '../../utils'
-import { useModalManager, ModalContext, DialogBase, useIoService, useInfoDialog } from '../common'
+import { ModalContext, DialogBase, useInfoDialog } from '../common'
 import { PZText, PZButton, PZPassword, PZProgress } from '../shared'
-import { useBuilder } from './hooks'
-import type { IPCTask } from '../../service/pzpack'
+import  { type IPCTask, startPZBuild } from '../../service/pzpack'
 import { RendererLogger } from '../../service/logger'
+import { saveFile } from '../../service/io'
+import { openModal, closeModal } from '../../service/modal'
 
 type BuildingDialogProps = {
   start: number
@@ -17,15 +18,17 @@ const BuildingDialog = (props: BuildingDialogProps) => {
   const { task } = props
   const [t] = useTranslation()
   const [usedTime, setUsedTime] = useState(formatTime(0))
-  const { closeModal } = useModalManager()
   const { id } = useContext(ModalContext)
   const [progress, setProgress] = useState<BuildProgress>()
   const info = useInfoDialog()
   const completeHandle = useCallback(
-    (cop: { canceled: boolean }) => {
+    (taskState: { canceled: boolean; error?: Error }) => {
       closeModal(id)
 
-      if (cop.canceled) {
+      if (taskState.error) {
+        info(taskState.error.message || t('unknown error'), t('error'), 'error')
+      }
+      if (taskState.canceled) {
         info(t('building canceled'))
       } else {
         const time = (Date.now() - props.start) / 1000
@@ -33,7 +36,7 @@ const BuildingDialog = (props: BuildingDialogProps) => {
         info(message, t('build complete'))
       }
     },
-    [info, closeModal, id],
+    [info, id],
   )
   useEffect(() => {
     const reporter = (p: BuildProgress) => {
@@ -41,16 +44,17 @@ const BuildingDialog = (props: BuildingDialogProps) => {
       const second = (Date.now() - props.start) / 1000
       setUsedTime(formatTime(second))
     }
-    let completeBind = completeHandle
-    const subscription = task.addReporter(reporter)
-    task.complete.then((p) => {
-      completeBind(p)
-    })
+    const subscription = task.observable.subscribe(
+      reporter,
+      (err) => {
+        completeHandle({ canceled: false, error: err })
+      },
+      () => {
+        completeHandle({ canceled: task.canceled })
+      },
+    )
 
-    return () => {
-      subscription.unsubscribe()
-      completeBind = () => {}
-    }
+    return () => subscription.unsubscribe()
   }, [task])
 
   return (
@@ -96,12 +100,9 @@ const ToBuildDialog = memo((props: ToBuildDialogProps) => {
   const [t] = useTranslation()
   const [target, setTarget] = useState('')
   const [msg, setMsg] = useState('')
-  const { closeModal, openModal } = useModalManager()
   const { id } = useContext(ModalContext)
-  const { saveFile } = useIoService()
   const descRef = useRef<HTMLInputElement>(null)
   const pwRef = useRef<HTMLInputElement>(null)
-  const { startPZBuild } = useBuilder()
 
   useEffect(() => {
     descRef.current?.focus()
@@ -110,7 +111,7 @@ const ToBuildDialog = memo((props: ToBuildDialogProps) => {
     saveFile([defFilters.PZPack]).then((f) => {
       if (f) setTarget(f)
     })
-  }, [saveFile])
+  }, [])
   const pwFocus = useCallback(() => pwRef.current?.focus(), [pwRef.current])
   const startBuild = useCallback(() => {
     const pw = pwRef.current?.value
@@ -131,7 +132,7 @@ const ToBuildDialog = memo((props: ToBuildDialogProps) => {
         RendererLogger.errorStack(err)
         setMsg(err?.message ?? t('unknown error'))
       })
-  }, [startPZBuild, target, descRef.current, pwRef.current])
+  }, [target, descRef.current, pwRef.current])
 
   return (
     <DialogBase>
@@ -170,10 +171,9 @@ const ToBuildDialog = memo((props: ToBuildDialogProps) => {
 })
 
 export const useBuilderDialogs = () => {
-  const { openModal } = useModalManager()
   const openBuildDialog = useCallback(
     (indexBuilder: PZIndexBuilder) => openModal(<ToBuildDialog indexBuilder={indexBuilder} />),
-    [openModal],
+    [],
   )
 
   return {

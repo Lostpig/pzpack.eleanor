@@ -2,10 +2,11 @@ import React, { memo, useContext, createContext, useMemo, useEffect, useReducer,
 import { useTranslation } from 'react-i18next'
 import type { PZVideo } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
-import { useInfoDialog, useIoService, useSetNamDialog } from '../common'
+import { useInfoDialog, useSetNamDialog } from '../common'
 import { FiletypeIcon } from '../icons'
 import { PZButton } from '../shared'
 import { RendererLogger } from '../../service/logger'
+import { selectVideos } from '../../service/io'
 import { useBuilderDialogs } from './dialogs'
 
 type BuilderContextType = {
@@ -62,7 +63,7 @@ const BuilderList: React.FC<{ update: number }> = memo(({ update }) => {
 const BuilderOperateBar: React.FC = memo(() => {
   const [t] = useTranslation()
   const { builder } = useContext(BuilderContext)
-  const { selectVideos } = useIoService()
+
   const info = useInfoDialog()
   const { openBuildDialog } = useBuilderDialogs()
 

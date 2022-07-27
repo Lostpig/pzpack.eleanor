@@ -5,8 +5,8 @@ import { bindingPZloader } from './pzpack'
 type OpenedPwBook = {
   filename: string
 }
-const inst = new PZSubscription.PZBehaviorNotify<OpenedPwBook | null>(null)
-const updater = new PZSubscription.PZNotify<string[]>()
+const inst = new PZSubscription.PZBehaviorSubject<OpenedPwBook | null>(null)
+const updater = new PZSubscription.PZSubject<string[]>()
 subscribeChannel('pwbook:update', (res) => updater.next(res.items))
 
 export const pwbookNotify = inst.asObservable()

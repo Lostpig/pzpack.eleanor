@@ -24,7 +24,7 @@ interface PZLoaderInstance extends PZInstanceBase {
 }
 export type PZInstance = PZBuilderInstance | PZMVBuilderInstance | PZLoaderInstance
 
-const PZInstanceNotify = new PZSubscription.PZBehaviorNotify<PZInstance | undefined>(undefined)
+const PZInstanceNotify = new PZSubscription.PZBehaviorSubject<PZInstance | undefined>(undefined)
 export const PZInstanceObservable = PZInstanceNotify.asObservable()
 
 export const bindingPZloader = async (hash: string, port: number, status: PZLoaderStatus) => {
@@ -64,34 +64,56 @@ export const closePZInstance = async () => {
 }
 
 export type IPCTask<T> = {
-  addReporter: (handler: (progress: T) => void) => PZSubscription.Subscription
-  complete: Promise<{ canceled: boolean }>
+  observable: PZSubscription.PZObservable<T>
+  readonly canceled: boolean
   cancel: () => Promise<void>
 }
-const createBuildingTask = (hash: string) => {
-  const addReporter = (handler: (progress: BuildProgress) => void) => {
-    return subscribeChannel('pzpk:building', (p) => {
-      if (p.hash === hash) handler(p.progress)
-    })
-  }
-  const complete = new Promise<{ canceled: boolean }>((res) => {
-    const subscription = subscribeChannel('pzpk:buildcomplete', (c) => {
-      if (c.hash === hash) {
-        subscription.unsubscribe()
-        res({ canceled: c.canceled })
+export type IPCTaskCreateSuccessResult<T> = {
+  success: true,
+  task: IPCTask<T>
+}
+
+const createBuildingTask = (hash: string): IPCTaskCreateSuccessResult<BuildProgress> => {
+  const subject = new PZSubscription.PZSubject<BuildProgress>()
+  let canceled = false
+
+  const subscriptions = [
+    subscribeChannel('pzpk:building', (p) => {
+      if (p.hash === hash) subject.next(p.progress)
+    }),
+    subscribeChannel('pzpk:buildcomplete', (p) => {
+      if (p.hash === hash) {
+        canceled = p.canceled
+        subject.complete()
       }
-    })
-  })
+    }),
+    subscribeChannel('pzpk:builderror', (p) => {
+      if (p.hash === hash) {
+        subject.error(new Error(p.error))
+      }
+    }),
+  ]
+  subject.subscribe(
+    undefined,
+    () => {
+      subscriptions.forEach((s) => s.unsubscribe())
+    },
+    () => {
+      subscriptions.forEach((s) => s.unsubscribe())
+    },
+  )
   const cancel = async () => {
     await invokeIpc('pzpk:close', hash)
   }
 
   const task: IPCTask<BuildProgress> = {
-    addReporter,
-    complete,
+    observable: subject.asObservable(),
     cancel,
+    get canceled () {
+      return canceled
+    }
   }
-  return { success: true, task } as { success: true; task: IPCTask<BuildProgress> }
+  return { success: true, task }
 }
 export const openPZBuilder = () => {
   const instance = PZInstanceNotify.current
@@ -121,30 +143,47 @@ export const startPZBuild = async (
   }
 }
 
-const createMvBuildingTask = (hash: string) => {
-  const addReporter = (handler: (progress: PZVideo.PZMVProgress) => void) => {
-    return subscribeChannel('pzpk:mvbuilding', (p) => {
-      if (p.hash === hash) handler(p.progress)
-    })
-  }
-  const complete = new Promise<{ canceled: boolean }>((res) => {
-    const subscription = subscribeChannel('pzpk:buildcomplete', (c) => {
-      if (c.hash === hash) {
-        subscription.unsubscribe()
-        res({ canceled: c.canceled })
+const createMvBuildingTask = (hash: string): IPCTaskCreateSuccessResult<PZVideo.PZMVProgress> => {
+  const subject = new PZSubscription.PZSubject<PZVideo.PZMVProgress>()
+  let canceled = false
+
+  const subscriptions = [
+    subscribeChannel('pzpk:mvbuilding', (p) => {
+      if (p.hash === hash) subject.next(p.progress)
+    }),
+    subscribeChannel('pzpk:buildcomplete', (p) => {
+      if (p.hash === hash) {
+        canceled = p.canceled
+        subject.complete()
       }
-    })
-  })
+    }),
+    subscribeChannel('pzpk:builderror', (p) => {
+      if (p.hash === hash) {
+        subject.error(new Error(p.error))
+      }
+    }),
+  ]
+  subject.subscribe(
+    undefined,
+    () => {
+      subscriptions.forEach((s) => s.unsubscribe())
+    },
+    () => {
+      subscriptions.forEach((s) => s.unsubscribe())
+    },
+  )
+
   const cancel = async () => {
     await invokeIpc('pzpk:close', hash)
   }
-
   const task: IPCTask<PZVideo.PZMVProgress> = {
-    addReporter,
-    complete,
+    observable: subject.asObservable(),
     cancel,
+    get canceled () {
+      return canceled
+    }
   }
-  return { success: true, task } as { success: true; task: IPCTask<PZVideo.PZMVProgress> }
+  return { success: true, task }
 }
 export const openPZMVBuilder = () => {
   const instance = PZInstanceNotify.current

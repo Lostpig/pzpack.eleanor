@@ -1,4 +1,4 @@
-import React, { memo, useState, useContext, createContext, useEffect, useMemo, useCallback } from 'react'
+import React, { memo, useState, useContext, createContext, useMemo, useCallback } from 'react'
 import type { PZIndexReader, PZFolder, PZFilePacked } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
 import { useTranslation } from 'react-i18next'
@@ -7,9 +7,10 @@ import { FiletypeIcon, RightIcon, InfoIcon } from '../icons'
 import { PZButton } from '../shared'
 import { formatSize, isImageFile } from '../../utils'
 import { ExplorerContext } from './hooks'
-import { useModalManager, useInfoDialog } from '../common'
+import { useInfoDialog } from '../common'
 import { ImageViewer } from './image-viewer'
 import type { PZLoaderStatus } from '../../../lib/declares'
+import { openModal } from '../../service/modal'
 
 type ContentContextType = {
   navigate: (folder: PZFolder) => void
@@ -126,14 +127,16 @@ const ExplorerInfo: React.FC<{ current: PZFolder }> = memo((props) => {
 const ExplorerContent = () => {
   const { indices } = useContext(ExplorerContext)
   const [currentFolder, setCurrentFolder] = useState(indices.root)
+  const [idxCache, setIdxCache] = useState(indices)
 
   const context: ContentContextType = useMemo(
     () => ({ navigate: (folder) => setCurrentFolder(folder) }),
     [setCurrentFolder],
   )
-  useEffect(() => {
+  if (indices !== idxCache) {
+    setIdxCache(indices)
     setCurrentFolder(indices.root)
-  }, [indices])
+  }
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -154,7 +157,6 @@ type PZFileExplorerProps = {
 }
 export const PZFileExplorer: React.FC<PZFileExplorerProps> = memo((props) => {
   const { indices, port, status, hash } = props
-  const { openModal } = useModalManager()
 
   const openImage = (file: PZFilePacked) => {
     if (!isImageFile(file)) return

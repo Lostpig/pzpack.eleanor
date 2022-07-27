@@ -11,11 +11,11 @@ import type {
   InvokeHandler
 } from '../../lib/ipc.channel'
 
-const receiverStore = new Map<MainChannelKeys, PZSubscription.PZNotify<any>>()
-const createReciveNotify = (channel: MainChannelKeys) => {
-  const notify = new PZSubscription.PZNotify()
-  receiverStore.set(channel, notify)
-  return notify
+const receiverStore = new Map<MainChannelKeys, PZSubscription.PZSubject<any>>()
+const createReciveSubject = (channel: MainChannelKeys) => {
+  const subject = new PZSubscription.PZSubject()
+  receiverStore.set(channel, subject)
+  return subject
 }
 const getReciveNotify = (channel: MainChannelKeys) => {
   return receiverStore.get(channel)
@@ -23,13 +23,13 @@ const getReciveNotify = (channel: MainChannelKeys) => {
 export const getReceiver = <C extends MainChannelKeys>(channel: C): MainChannelReceiver<C> => {
   let receiver = receiverStore.get(channel)
   if (!receiver) {
-    receiver = createReciveNotify(channel)
+    receiver = createReciveSubject(channel)
   }
   return receiver.asObservable()
 }
 
 type SenderPayload<C extends RendererChannelKeys> = { channel: C, data: RendererChannelData<C> }
-const globalSender = new PZSubscription.PZNotify<SenderPayload<any>>()
+const globalSender = new PZSubscription.PZSubject<SenderPayload<any>>()
 const senderStore = new Map<RendererChannelKeys, MainChannelSender<any>>()
 export const getSender = <C extends RendererChannelKeys>(channel: C): MainChannelSender<C> => {
   let sender = senderStore.get(channel)

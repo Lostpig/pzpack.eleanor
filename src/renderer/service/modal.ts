@@ -9,16 +9,16 @@ export type ModalContent = {
 export type ModalState = {
   contents: ModalContent[]
 }
-const modalStateNotify = new PZSubscription.PZBehaviorNotify<ModalState>({ contents: [] })
+const modalStateNotify = new PZSubscription.PZBehaviorSubject<ModalState>({ contents: [] })
 const keyCounter = (() => {
   let i = 0
   return () => i++
 })()
 
 let modalChangingFlag = false
-const modalHandleStore = new Map<number, PZSubscription.PZNotify<string | undefined>>()
+const modalHandleStore = new Map<number, PZSubscription.PZSubject<string | undefined>>()
 
-const execOpenModal = (key: number, element: React.ReactElement, handle: PZSubscription.PZNotify<string | undefined>) => {
+const execOpenModal = (key: number, element: React.ReactElement, handle: PZSubscription.PZSubject<string | undefined>) => {
   if (modalChangingFlag) nextTick().then(() => execOpenModal(key, element, handle))
 
   modalChangingFlag = true
@@ -29,7 +29,7 @@ const execOpenModal = (key: number, element: React.ReactElement, handle: PZSubsc
 }
 export const openModal = (element: React.ReactElement) => {
   const key = keyCounter()
-  const modalHandle = new PZSubscription.PZNotify<string | undefined>()
+  const modalHandle = new PZSubscription.PZSubject<string | undefined>()
   execOpenModal(key, element, modalHandle)
   return modalHandle.asObservable()
 }

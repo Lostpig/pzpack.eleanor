@@ -2,27 +2,10 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { FirstLetterUpper } from '../../utils'
 import type { PackageInfo, Theme } from '../../../lib/declares'
 import { getInfo } from '../../service/global'
-import { openFile, saveFile, openDir, selectFiles, selectVideos } from '../../service/io'
-import { modalObservable, openModal, closeModal } from '../../service/modal'
-import { setConfig, getConfig, checkFfmpeg, checkExternalPalyer } from '../../service/config'
-import {
-  openPZloader,
-  closePZInstance,
-  openPZBuilder,
-  openPZMVBuilder,
-  PZInstanceObservable,
-  type PZInstance,
-} from '../../service/pzpack'
-import {
-  openPasswordBook,
-  closePasswordBook,
-  addPassword,
-  deletePassword,
-  getCurrentPasswordBook,
-  pwbookNotify,
-  pwbookUpdater,
-  tryOpenFile
-} from '../../service/pwbook'
+import { modalObservable } from '../../service/modal'
+import { getConfig } from '../../service/config'
+import { PZInstanceObservable, type PZInstance } from '../../service/pzpack'
+import { pwbookNotify } from '../../service/pwbook'
 import { subscribeChannel, sendToChannel, invokeIpc } from '../../service/ipc'
 
 export const useNavigate = () => {
@@ -35,12 +18,6 @@ export const useNavigate = () => {
   })
   return path
 }
-export const useIoService = () => {
-  return useMemo(() => {
-    return { openFile, saveFile, openDir, selectFiles, selectVideos }
-  }, [])
-}
-
 export const useModalState = () => {
   const [state, setState] = useState(modalObservable.current)
 
@@ -53,12 +30,6 @@ export const useModalState = () => {
 
   return state
 }
-export const useModalManager = () => {
-  return useMemo(() => {
-    return { openModal, closeModal }
-  }, [])
-}
-
 export const usePZInstance = () => {
   const [instance, setInstance] = useState<PZInstance>()
   useEffect(() => {
@@ -67,11 +38,6 @@ export const usePZInstance = () => {
   }, [])
 
   return instance
-}
-export const usePZPackService = () => {
-  return useMemo(() => {
-    return { openPZloader, closePZInstance, openPZBuilder, openPZMVBuilder }
-  }, [])
 }
 
 export const useWindowState = () => {
@@ -128,11 +94,6 @@ export const useTheme = (): [string, (theme: Theme) => void] => {
   return [theme, changeTheme]
 }
 
-export const useConfig = () => {
-  return useMemo(() => {
-    return { setConfig, getConfig, checkFfmpeg, checkExternalPalyer }
-  }, [])
-}
 export const useExternalPlayer = () => {
   const openExternalPlayer = useCallback((url: string) => {
     sendToChannel('exec:explayer', { url })
@@ -152,9 +113,4 @@ export const usePwBook = () => {
     return () => subscription.unsubscribe()
   }, [])
   return pwbookFile
-}
-export const usePwBookService = () => {
-  return useMemo(() => {
-    return { openPasswordBook, closePasswordBook, addPassword, deletePassword, getCurrentPasswordBook, tryOpenFile, pwbookUpdater }
-  }, [])
 }

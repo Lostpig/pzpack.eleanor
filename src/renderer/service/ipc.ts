@@ -12,11 +12,11 @@ import type {
 } from '../../lib/ipc.channel'
 import { RendererLogger } from './logger'
 
-const receiverMap = new Map<string, PZSubscription.PZNotify<any>>()
+const receiverMap = new Map<string, PZSubscription.PZSubject<any>>()
 const getReceiver = (key: string) => {
   let receiver = receiverMap.get(key)
   if (!receiver) {
-    receiver = new PZSubscription.PZNotify()
+    receiver = new PZSubscription.PZSubject()
     receiverMap.set(key, receiver)
   }
 
@@ -25,7 +25,7 @@ const getReceiver = (key: string) => {
 
 type ReceiverPayload<C extends RendererChannelKeys> = { channel: C; data: RendererChannelData<C> }
 type SenderPayload<C extends MainChannelKeys> = { channel: C; data: MainChannelData<C> }
-const sender = new PZSubscription.PZNotify<SenderPayload<any>>()
+const sender = new PZSubscription.PZSubject<SenderPayload<any>>()
 
 const subscribeChannel = <T extends RendererChannelKeys>(channel: T, handler: RendererChannelHandler<T>) => {
   const receiver = getReceiver(channel)

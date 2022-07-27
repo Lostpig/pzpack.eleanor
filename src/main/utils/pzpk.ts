@@ -44,7 +44,7 @@ interface PZContextExplorer extends PZContext {
 }
 type PZContexts = PZContextBuilding | PZContextMVBuilding | PZContextExplorer
 
-const PZInstanceNotify = new PZSubscription.PZBehaviorNotify<PZContexts | undefined>(undefined)
+const PZInstanceSubject = new PZSubscription.PZBehaviorSubject<PZContexts | undefined>(undefined)
 
 const closeInstance = (context: PZContexts) => {
   if (context.state === 'explorer') {
@@ -55,11 +55,11 @@ const closeInstance = (context: PZContexts) => {
 }
 const pushPZLoader = (hash: string, loader: PZLoader) => {
   pzServer.binding(hash, loader)
-  PZInstanceNotify.next({ state: 'explorer', hash, instance: loader })
+  PZInstanceSubject.next({ state: 'explorer', hash, instance: loader })
 }
 
 export const openPZloader = async (file: string, password: string | Buffer): Promise<PZPKOpenResult> => {
-  const context = PZInstanceNotify.current
+  const context = PZInstanceSubject.current
   let loader: PZLoader | undefined
 
   try {
@@ -97,7 +97,7 @@ export const openPZloader = async (file: string, password: string | Buffer): Pro
   }
 }
 export const tryOpenPZloader = (file: string, book: PasswordBook): Promise<PZPKOpenResult> | PZPKOpenResult => {
-  const context = PZInstanceNotify.current
+  const context = PZInstanceSubject.current
   if (context && context.state === 'explorer') {
     if (file === context.instance.filename) return { success: false, message: 'already opened file' }
   }
@@ -111,7 +111,7 @@ export const tryOpenPZloader = (file: string, book: PasswordBook): Promise<PZPKO
   }
 }
 export const loadIndexData = (hash: string): PZPKIndexResult => {
-  const context = PZInstanceNotify.current
+  const context = PZInstanceSubject.current
   if (context?.state === 'explorer' && context.hash === hash) {
     const loader = context.instance
     const idxBuf = loader.loadIndexBuffer()
@@ -123,11 +123,11 @@ export const loadIndexData = (hash: string): PZPKIndexResult => {
 }
 
 export const closePZInstance = (hash: string) => {
-  const current = PZInstanceNotify.current
+  const current = PZInstanceSubject.current
 
   if (current && current.hash === hash) {
     closeInstance(current)
-    PZInstanceNotify.next(undefined)
+    PZInstanceSubject.next(undefined)
   }
 }
 export const startPZBuild = (indexData: string, options: PZBuildOptions): PZPKPackResult => {
@@ -144,10 +144,14 @@ export const startPZBuild = (indexData: string, options: PZBuildOptions): PZPKPa
 
   const sender = getSender('pzpk:building')
   const completer = getSender('pzpk:buildcomplete')
-  task.addReporter((p) => sender.send({ hash, progress: p }))
-  task.complete.then((p) => {
-    completer.send({ hash, canceled: p.isCanceled })
-  })
+  const errorSender = getSender('pzpk:builderror')
+  task.subscribe(
+    (p) => sender.send({ hash, progress: p }),
+    (err) => { errorSender.send({ hash, error: err.message }) },
+    () => {
+      completer.send({ hash, canceled: task.canceled })
+    }
+  )
 
   return { success: true, hash }
 }
@@ -166,10 +170,13 @@ export const startPZMVBuild = (target: string, indexData: string, options: PZMVB
 
   const sender = getSender('pzpk:mvbuilding')
   const completer = getSender('pzpk:buildcomplete')
-  task.addReporter((p) => sender.send({ hash, progress: p }))
-  task.complete.then((p) => {
-    completer.send({ hash, canceled: p.isCanceled })
-  })
-
+  const errorSender = getSender('pzpk:builderror')
+  task.subscribe(
+    (p) => sender.send({ hash, progress: p }),
+    (err) => { errorSender.send({ hash, error: err.message }) },
+    () => {
+      completer.send({ hash, canceled: task.canceled })
+    }
+  )
   return { success: true, hash }
 }

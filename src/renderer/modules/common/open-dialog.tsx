@@ -2,10 +2,13 @@ import React, { useState, useEffect, useRef, useContext, useCallback } from 'rea
 import { useTranslation } from 'react-i18next'
 import { mergeCls } from '../../utils'
 import { ModalContext } from './modal'
-import { useModalManager, usePZPackService, useIoService, usePwBookService } from './hooks'
 import { PZButton, PZPassword, type PZPasswordRef } from '../shared'
 import { DialogBase } from './dialogs'
 import { RendererLogger } from '../../service/logger'
+import { openModal, closeModal } from '../../service/modal'
+import { openPZloader } from '../../service/pzpack'
+import { openFile } from '../../service/io'
+import { tryOpenFile } from '../../service/pwbook'
 
 type FileDialogProps = {
   path: string
@@ -13,9 +16,7 @@ type FileDialogProps = {
 const OpenFileDialog = (props: FileDialogProps) => {
   const [t] = useTranslation()
   const [msg, setMsg] = useState('')
-  const { closeModal } = useModalManager()
   const { id } = useContext(ModalContext)
-  const { openPZloader } = usePZPackService()
   const pwElRef = useRef<PZPasswordRef>(null)
 
   useEffect(() => {
@@ -27,7 +28,7 @@ const OpenFileDialog = (props: FileDialogProps) => {
       if (result.success) closeModal(id)
       else setMsg(result.message && result.message !== '' ? result.message : 'unknown error')
     })
-  }, [openPZloader, setMsg, pwElRef.current])
+  }, [setMsg, pwElRef.current])
 
   return (
     <DialogBase>
@@ -53,12 +54,7 @@ const OpenFileDialog = (props: FileDialogProps) => {
     </DialogBase>
   )
 }
-
 export const useOpenFileDialog = () => {
-  const { openModal } = useModalManager()
-  const { openFile } = useIoService()
-  const { tryOpenFile } = usePwBookService()
-
   const openHandler = useCallback(async () => {
     const file = await openFile()
     if (!file) return
@@ -70,7 +66,7 @@ export const useOpenFileDialog = () => {
     }
 
     openModal(<OpenFileDialog path={file} />)
-  }, [openFile, openModal])
+  }, [])
 
   return openHandler
 }

@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next'
 import type { PZSubscription } from 'pzpack'
 import { mergeCls } from 'renderer/utils'
 import { ModalContext } from './modal'
-import { useModalManager } from './hooks'
 import { InfoIcon } from '../icons'
 import { PZButton, PZText } from '../shared'
+import { openModal, closeModal } from '../../service/modal'
 
 export const DialogBase: React.FC = (props) => {
   return (
@@ -29,7 +29,6 @@ type InfoDialogProps = {
 }
 const InfoDialog = (props: InfoDialogProps) => {
   const [t] = useTranslation()
-  const { closeModal } = useModalManager()
   const { id } = useContext(ModalContext)
   const iconColor =
     props.type === 'error' ? 'text-red-600' : props.type === 'warning' ? 'text-yellow-500' : 'text-blue-600'
@@ -69,7 +68,6 @@ type ConfirmDialogProps = {
 }
 const ConfirmDialog = (props: ConfirmDialogProps) => {
   const [t] = useTranslation()
-  const { closeModal } = useModalManager()
   const { id } = useContext(ModalContext)
 
   return (
@@ -101,7 +99,6 @@ export type SetNameDialogProps = {
 const SetNameDialog = (props: SetNameDialogProps) => {
   const [t] = useTranslation()
   const [msg, setMsg] = useState('')
-  const { closeModal } = useModalManager()
   const { id } = useContext(ModalContext)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -142,31 +139,21 @@ const SetNameDialog = (props: SetNameDialogProps) => {
 }
 
 export const useSetNamDialog = () => {
-  const { openModal } = useModalManager()
-
   const openHandler = useCallback(
     (orgName?: string, caption?: string) => openModal(<SetNameDialog orgName={orgName} caption={caption} />),
-    [openModal],
+    [],
   )
   return openHandler
 }
 export const useInfoDialog = () => {
-  const { openModal } = useModalManager()
-  const openHandler = useCallback(
-    (text: string, caption?: string, type?: InfoDialogProps['type']) => {
-      return openModal(<InfoDialog text={text} caption={caption} type={type} />)
-    },
-    [openModal],
-  )
+  const openHandler = useCallback((text: string, caption?: string, type?: InfoDialogProps['type']) => {
+    return openModal(<InfoDialog text={text} caption={caption} type={type} />)
+  }, [])
   return openHandler
 }
 export const useConfirmDialog = () => {
-  const { openModal } = useModalManager()
-  const openHandler = useCallback(
-    (text: string, caption?: string) => {
-      return openModal(<ConfirmDialog text={text} caption={caption} />) as PZSubscription.PZObservable<'ok' | undefined>
-    },
-    [openModal],
-  )
+  const openHandler = useCallback((text: string, caption?: string) => {
+    return openModal(<ConfirmDialog text={text} caption={caption} />) as PZSubscription.PZObservable<'ok' | undefined>
+  }, [])
   return openHandler
 }

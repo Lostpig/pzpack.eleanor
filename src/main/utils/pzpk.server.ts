@@ -163,6 +163,7 @@ class EleanorServer {
       res.write(result.data)
       notEnd = !result.end
     }
+    reader.destory()
 
     res.end()
   }

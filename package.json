@@ -1,7 +1,7 @@
 {
   "name": "eleanor",
-  "version": "0.0.8",
-  "description": "Eleanor: A pzpack gui",
+  "version": "0.0.9",
+  "description": "Eleanor: A pzpack gui client",
   "main": "main.cjs",
   "files": [
     "main.cjs",

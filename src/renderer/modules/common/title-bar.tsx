@@ -1,30 +1,16 @@
 import * as path from 'path'
-import React, {
-  useReducer,
-  createContext,
-  useMemo,
-  useContext,
-  type PropsWithChildren,
-  useCallback,
-} from 'react'
+import React, { useReducer, createContext, useMemo, useContext, type PropsWithChildren, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MinimizeIcon, MaximizeIcon, WindowizeIcon, CloseIcon, MenuIcon } from '../icons'
 import { mergeCls } from '../../utils'
-import {
-  useWindowState,
-  useWindowOperate,
-  usePackage,
-  useTheme,
-  usePZInstance,
-  usePZPackService,
-  useConfig,
-  usePwBook,
-  usePwBookService,
-} from './hooks'
+import { useWindowState, useWindowOperate, usePackage, useTheme, usePZInstance, usePwBook } from './hooks'
 import { useSettingDialog } from './setting-dialog'
 import { usePwBookDialog } from './pwbook-dialogs'
 import { useConfirmDialog } from './dialogs'
 import { useOpenFileDialog } from './open-dialog'
+import { closePasswordBook } from '../../service/pwbook'
+import { getConfig } from '../../service/config'
+import { closePZInstance, openPZBuilder, openPZMVBuilder } from '../../service/pzpack'
 
 type TitleBarContext = {
   toggleMenu: (patch?: boolean) => void
@@ -159,7 +145,6 @@ const ThemeSubMenu = () => {
 const PWBookSubMenu = () => {
   const [t] = useTranslation()
   const pwbFile = usePwBook()
-  const { closePasswordBook } = usePwBookService()
   const { open, openEdit } = usePwBookDialog()
   const fname = useMemo(() => {
     return pwbFile ? path.basename(pwbFile) : ''
@@ -196,10 +181,8 @@ const TitleMenu = (props: { hidden: boolean }) => {
   const { hidden } = props
   const [t] = useTranslation()
   const { close: closeWindow } = useWindowOperate()
-  const { closePZInstance, openPZBuilder, openPZMVBuilder } = usePZPackService()
   const instance = usePZInstance()
   const opened = useMemo(() => instance !== undefined, [instance])
-  const { getConfig } = useConfig()
   const openFile = useOpenFileDialog()
   const confirm = useConfirmDialog()
   const openSettingDialog = useSettingDialog()
@@ -212,7 +195,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
     } else {
       openPZBuilder()
     }
-  }, [instance, confirm, openPZBuilder])
+  }, [instance, confirm])
   const openVideoBuilder = useCallback(() => {
     if (instance && instance.type !== 'mvbuilder') {
       const ob = confirm(t('has opened doc alert'), t('warning'))
@@ -235,7 +218,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
         }
       })
     }
-  }, [instance, confirm, openPZMVBuilder, openSettingDialog])
+  }, [instance, confirm, openSettingDialog])
 
   return (
     <div

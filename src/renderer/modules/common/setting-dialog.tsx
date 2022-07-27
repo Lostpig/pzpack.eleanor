@@ -1,16 +1,15 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PZButton, PZText } from '../shared'
-import { useModalManager, useConfig, useIoService } from './hooks'
 import { ModalContext } from './modal'
 import { DialogBase, useInfoDialog } from './dialogs'
+import { openModal, closeModal } from '../../service/modal'
+import { openDir, openFile } from '../../service/io'
+import { getConfig, setConfig, checkFfmpeg, checkExternalPalyer } from '../../service/config'
 
 const SettingDialog: React.FC = () => {
   const [t] = useTranslation()
-  const { closeModal } = useModalManager()
   const { id } = useContext(ModalContext)
-  const { getConfig, setConfig, checkFfmpeg, checkExternalPalyer } = useConfig()
-  const { openDir, openFile } = useIoService()
   const info = useInfoDialog()
   const [ffmpegPath, setFfmpegPath] = useState('')
   const [tempPath, setTempPath] = useState('')
@@ -42,22 +41,22 @@ const SettingDialog: React.FC = () => {
       .catch((err) => {
         info(err?.message ?? t('unknown error'), t('error'), 'error')
       })
-  }, [setConfig, ffmpegPath, tempPath, externalPlayer])
+  }, [ffmpegPath, tempPath, externalPlayer])
   const selectFfmpeg = useCallback(() => {
     openDir().then((d) => {
       if (d) setFfmpegPath(d)
     })
-  }, [openDir, setFfmpegPath])
+  }, [setFfmpegPath])
   const selectTempPath = useCallback(() => {
     openDir().then((d) => {
       if (d) setTempPath(d)
     })
-  }, [openDir, setTempPath])
+  }, [setTempPath])
   const selectExternalPlayer = useCallback(() => {
     openFile([{ name: 'EXE', extensions: ['exe'] }]).then((d) => {
       if (d) setExternalPlayer(d)
     })
-  }, [openFile, setExternalPlayer])
+  }, [setExternalPlayer])
 
   return (
     <DialogBase>
@@ -107,9 +106,8 @@ const SettingDialog: React.FC = () => {
 }
 
 export const useSettingDialog = () => {
-  const { openModal } = useModalManager()
   const openHandler = useCallback(() => {
     return openModal(<SettingDialog />)
-  }, [openModal])
+  }, [])
   return openHandler
 }

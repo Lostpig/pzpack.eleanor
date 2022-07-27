@@ -3,11 +3,12 @@ import React, { memo, useState, useContext, createContext, useMemo, useEffect, u
 import { useTranslation } from 'react-i18next'
 import { PZHelper, type PZFolder, type PZFileBuilding, type PZIndexBuilder } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
-import { useInfoDialog, useIoService, useSetNamDialog } from '../common'
+import { useInfoDialog, useSetNamDialog } from '../common'
 import { FiletypeIcon, RightIcon } from '../icons'
 import { PZButton } from '../shared'
 import { RendererLogger } from 'renderer/service/logger'
 import { useBuilderDialogs } from './dialogs'
+import { openDir, selectFiles } from '../../service/io'
 
 type ContentContextType = {
   navigate: (folder: PZFolder) => void
@@ -167,7 +168,6 @@ const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) =>
   const { builder } = useContext(BuilderContext)
   const openSetNameDialog = useSetNamDialog()
   const { openBuildDialog } = useBuilderDialogs()
-  const { openDir, selectFiles } = useIoService()
   const info = useInfoDialog()
 
   const createFolder = useCallback(() => {
@@ -180,7 +180,7 @@ const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) =>
     openDir().then((dir) => {
       if (dir) addDir(builder, current, dir)
     })
-  }, [builder, current, openDir])
+  }, [builder, current])
   const addFiles = useCallback(() => {
     selectFiles().then((files) => {
       for (const file of files) {
@@ -188,7 +188,7 @@ const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) =>
         builder.addFile(file, current.id, filename)
       }
     })
-  }, [builder, current, selectFiles])
+  }, [builder, current])
   const renameBySort = useCallback(() => {
     const children = builder.getChildren(current.id)
     const sortedFiles = children.files.sort((a, b) => naturalCompare(a.name, b.name))

@@ -14,8 +14,9 @@ import {
   LeftIcon,
   RightIcon,
 } from '../icons'
-import { ModalContext, useModalManager } from '../common'
+import { ModalContext } from '../common'
 import { useImageContext, ImageViewerContext } from './hooks'
+import { closeModal } from '../../service/modal'
 
 type operation = 'next' | 'prev'
 type ViewerContentState = {
@@ -28,8 +29,8 @@ type ViewerContentBinding = {
   zoomIn: () => void
   zoomOut: () => void
   zoomReset: () => void
-  stateObserval: PZSubscription.PZNotify<ViewerContentState>
-  actionObserval: PZSubscription.PZNotify<operation>
+  stateObserval: PZSubscription.PZSubject<ViewerContentState>
+  actionObserval: PZSubscription.PZSubject<operation>
 }
 let bindingInstance: ViewerContentBinding
 const zoomRange = [0.1, 5]
@@ -118,8 +119,8 @@ const createViewerContentBinding = () => {
     el.className = 'pzviewer'
     let zoom = 1
     let zoomLocked = false
-    const stateSubject = new PZSubscription.PZNotify<ViewerContentState>()
-    const actionSubject = new PZSubscription.PZNotify<operation>()
+    const stateSubject = new PZSubscription.PZSubject<ViewerContentState>()
+    const actionSubject = new PZSubscription.PZSubject<operation>()
     const image = new Image()
     el.appendChild(image)
     const setZoom = () => {
@@ -222,41 +223,37 @@ const ViewFooterSeparator = () => {
 const ViewerContent: React.FC = () => {
   const { count, total, next, prev, getImage, getFile } = useContext(ImageViewerContext)
   const { id } = useContext(ModalContext)
-  const { closeModal } = useModalManager()
   const [t] = useTranslation()
   const [zoom, setZoom] = useState(100)
   const [fullscreen, setFullscreen] = useState(false)
   const [contentBinding, setContent] = useState<ViewerContentBinding>()
   const containerRef = useRef<HTMLDivElement>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const [countCache, setCountCache] = useState(count)
+  if (countCache !== count) {
+    contentBinding?.change(getImage(count))
+    setCountCache(count)
+  }
 
   RendererLogger.debug(`ViewerContent render: ${count} / ${total}`)
 
   useEffect(() => {
     const c = bindViewerContent(containerRef.current)
-    setContent(c)
-    return () => clearViewerContentBinding()
-  }, [containerRef.current])
-  useEffect(() => {
-    const subscription = contentBinding?.stateObserval.subscribe((s) => {
+    const subscription = c?.stateObserval.subscribe((s) => {
       setZoom(s.zoom * 100)
     })
-    const actSubscription = contentBinding?.actionObserval.subscribe((opt) => {
+    const actSubscription = c?.actionObserval.subscribe((opt) => {
       if (opt === 'next') next()
       else if (opt === 'prev') prev()
     })
-
+    setContent(c)
     return () => {
       subscription?.unsubscribe()
       actSubscription?.unsubscribe()
+      clearViewerContentBinding()
     }
-  }, [contentBinding, next, prev])
-  useEffect(() => {
-    if (contentBinding) {
-      const url = getImage(count)
-      contentBinding?.change(url)
-    }
-  }, [contentBinding, getImage, count])
+  }, [containerRef.current])
+
   const toggleFullscreen = useCallback(() => {
     if (ref.current) {
       if (!document.fullscreenElement) {
