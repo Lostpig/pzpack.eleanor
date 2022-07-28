@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import type { ConfigKey, ConfigValue } from '../../lib/declares'
-import { invokeIpc } from './ipc'
+import { invokeIpc, sendToChannel } from './ipc'
 
 export const getConfig = <K extends ConfigKey>(key: K) => {
   return invokeIpc('config:get', key) as Promise<ConfigValue<K>>
@@ -17,10 +17,19 @@ export const checkFfmpeg = (dir: string) => {
 
   return binExists && ffprobeExists
 }
-export const checkExternalPalyer = (filename: string) => {
+export const checkExternalPlayer = (filename: string) => {
   const ext = path.extname(filename)
   if (ext !== '.exe') return false
 
   const binExists = fs.existsSync(filename)
   return binExists
+}
+
+export const openExternalPlayer = (url: string) => {
+  sendToChannel('exec:explayer', { url })
+}
+export const externalPlayerExists = () => {
+  return getConfig('externalPlayer').then((val) => {
+    return !!val
+  })
 }

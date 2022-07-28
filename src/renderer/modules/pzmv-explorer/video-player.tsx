@@ -3,18 +3,17 @@ import { useTranslation } from 'react-i18next'
 import type { PZFolder } from 'pzpack'
 import { MediaPlayer } from 'dashjs'
 
-import { ModalContext, useExternalPlayer, useInfoDialog } from '../common'
+import { ModalContext, info } from '../common'
 import { PZButton } from '../shared'
 import { CloseLargeIcon } from '../icons'
 import { createFileUrl } from '../../utils'
 import { closeModal } from '../../service/modal'
+import { externalPlayerExists, openExternalPlayer } from '../../service/config'
 
-export const VideoPlayer: React.FC<{ port: number, hash: string, video: PZFolder }> = ({ port, hash, video }) => {
+export const VideoPlayer: React.FC<{ port: number; hash: string; video: PZFolder }> = ({ port, hash, video }) => {
   const [t] = useTranslation()
   const ref = useRef<HTMLVideoElement>(null)
   const { id } = useContext(ModalContext)
-  const info = useInfoDialog()
-  const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
 
   useEffect(() => {
     if (ref.current) {
@@ -37,7 +36,7 @@ export const VideoPlayer: React.FC<{ port: number, hash: string, video: PZFolder
     return () => {}
   }, [ref.current, port, video])
   const openExPlayer = useCallback(() => {
-    checkExternalPlayer().then((exists) => {
+    externalPlayerExists().then((exists) => {
       if (exists) {
         const url = createFileUrl(port, hash, video.id, 'play.mpd')
         openExternalPlayer(url)
@@ -46,7 +45,7 @@ export const VideoPlayer: React.FC<{ port: number, hash: string, video: PZFolder
         info(t('external player not setted'), t('warning'), 'warning')
       }
     })
-  },[checkExternalPlayer, openExternalPlayer, port, video, ref.current])
+  }, [port, video, ref.current])
 
   return (
     <div className="absolute top-0 left-0 w-screen h-screen bg-white dark:bg-neutral-700">
@@ -59,7 +58,7 @@ export const VideoPlayer: React.FC<{ port: number, hash: string, video: PZFolder
         </div>
       </header>
       <div className="w-full h-full flex flex-col overflow-hidden items-center">
-        <div className="flex-1 flex items-center justify-center" style={({ height: 'calc(100% - 10rem)' })}>
+        <div className="flex-1 flex items-center justify-center" style={{ height: 'calc(100% - 10rem)' }}>
           <video className="max-h-full max-w-full" ref={ref} controls></video>
         </div>
         <div className="flex h-8 items-center">

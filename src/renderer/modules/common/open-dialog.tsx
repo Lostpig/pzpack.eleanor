@@ -54,19 +54,16 @@ const OpenFileDialog = (props: FileDialogProps) => {
     </DialogBase>
   )
 }
-export const useOpenFileDialog = () => {
-  const openHandler = useCallback(async () => {
-    const file = await openFile()
-    if (!file) return
 
-    const tryResult = await tryOpenFile(file)
-    if (tryResult.success) {
-      RendererLogger.info('matching password book success')
-      return
-    }
+export const openOpenFileDialog = async () => {
+  const file = await openFile()
+  if (!file) return
 
-    openModal(<OpenFileDialog path={file} />)
-  }, [])
+  const tryResult = await tryOpenFile(file)
+  if (tryResult.success) {
+    RendererLogger.info('matching password book success')
+    return
+  }
 
-  return openHandler
+  openModal(<OpenFileDialog path={file} />)
 }

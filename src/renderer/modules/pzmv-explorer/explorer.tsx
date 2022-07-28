@@ -5,11 +5,12 @@ import naturalCompare from 'natural-compare-lite'
 
 import type { PZLoaderStatus } from '../../../lib/declares'
 import { FiletypeIcon, InfoIcon } from '../icons'
-import { useExternalPlayer, useInfoDialog } from '../common'
+import { info } from '../common'
 import { formatSize, formatTime, parseVideoTime, createUrl, createFileUrl } from '../../utils'
 import { VideoPlayer } from './video-player'
 import { PZButton } from '../shared'
 import { openModal } from '../../service/modal'
+import { openExternalPlayer, externalPlayerExists } from '../../service/config'
 
 type ExplorerContextType = {
   indices: PZIndexReader
@@ -26,13 +27,11 @@ const ExplorerInfoSeparator = () => {
 const ExplorerHeader: React.FC = memo(() => {
   const { status, port, hash } = useContext(ExplorerContext)
   const [t] = useTranslation()
-  const info = useInfoDialog()
-  const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
   const showDesc = useCallback(() => {
     info(status.description, t('file description'))
   }, [status, info, t])
   const playAll = useCallback(() => {
-    checkExternalPlayer().then((exists) => {
+    externalPlayerExists().then((exists) => {
       if (exists) {
         const url = createUrl(port, hash, 'playlist.pls')
         openExternalPlayer(url)
@@ -40,7 +39,7 @@ const ExplorerHeader: React.FC = memo(() => {
         info(t('external player not setted'), t('warning'), 'warning')
       }
     })
-  }, [checkExternalPlayer, openExternalPlayer, port, hash])
+  }, [port, hash])
 
   return (
     <div className="py-1 px-3 flex items-center justify-start shadow-sm dark:shadow-black">
@@ -59,13 +58,11 @@ const ExolorerVideo: React.FC<{ folder: PZFolder }> = memo(({ folder }) => {
   const [t] = useTranslation()
   const [time, setTime] = useState(formatTime(0))
   const { openVideoPlayer, port, hash } = useContext(ExplorerContext)
-  const info = useInfoDialog()
-  const { checkExternalPlayer, openExternalPlayer } = useExternalPlayer()
   const openVideo = useCallback(() => {
     openVideoPlayer(folder)
   }, [openVideoPlayer])
   const openExPlayer = useCallback(() => {
-    checkExternalPlayer().then((exists) => {
+    externalPlayerExists().then((exists) => {
       if (exists) {
         const url = createFileUrl(port, hash, folder.id, 'play.mpd')
         openExternalPlayer(url)
@@ -73,7 +70,7 @@ const ExolorerVideo: React.FC<{ folder: PZFolder }> = memo(({ folder }) => {
         info(t('external player not setted'), t('warning'), 'warning')
       }
     })
-  }, [checkExternalPlayer, openExternalPlayer, folder, port, hash])
+  }, [folder, port, hash])
 
   useEffect(() => {
     parseVideoTime(port, hash, folder).then((vtime) => {

@@ -2,15 +2,22 @@ import * as path from 'path'
 import React, { useReducer, createContext, useMemo, useContext, type PropsWithChildren, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MinimizeIcon, MaximizeIcon, WindowizeIcon, CloseIcon, MenuIcon } from '../icons'
-import { mergeCls } from '../../utils'
-import { useWindowState, useWindowOperate, usePackage, useTheme, usePZInstance, usePwBook } from './hooks'
-import { useSettingDialog } from './setting-dialog'
-import { usePwBookDialog } from './pwbook-dialogs'
-import { useConfirmDialog } from './dialogs'
-import { useOpenFileDialog } from './open-dialog'
+import { mergeCls, lazyValue, FirstLetterUpper } from '../../utils'
+import { useWindowState, useTheme, usePZInstance, usePwBook } from './hooks'
+import { openSettingDialog } from './setting-dialog'
+import { openPwbookDialog, openPwbookEditDialog } from './pwbook-dialogs'
+import { openConfirmDialog } from './dialogs'
+import { openOpenFileDialog } from './open-dialog'
 import { closePasswordBook } from '../../service/pwbook'
 import { getConfig } from '../../service/config'
 import { closePZInstance, openPZBuilder, openPZMVBuilder } from '../../service/pzpack'
+import { sendToChannel } from '../../service/ipc'
+import { getInfo } from '../../service/global'
+
+const packageInfo = lazyValue(() => {
+  const globalInfo = getInfo()
+  return { ...globalInfo.pkgInfo, name: FirstLetterUpper(globalInfo.pkgInfo.name) }
+})
 
 type TitleBarContext = {
   toggleMenu: (patch?: boolean) => void
@@ -31,27 +38,31 @@ const TitleBarIcon: React.FC<PropsWithChildren<React.DOMAttributes<HTMLDivElemen
   )
 }
 const TitleContent: React.FC = () => {
-  const pkg = usePackage()
   return (
     <div className="flex-1 text-center select-none">
       <span className="inline-block align-middle">
-        {pkg?.name ?? 'Eleanor'} {pkg?.version ?? ''}
+        {packageInfo.value?.name ?? 'Eleanor'} {packageInfo.value?.version ?? ''}
       </span>
     </div>
   )
 }
+
+const closeWindow = () => {
+  sendToChannel('window:operate', 'close')
+}
+const minimizeWindow = () => {
+  sendToChannel('window:operate', 'minimize')
+}
 const CloseButton = () => {
-  const { close } = useWindowOperate()
   return (
-    <TitleBarIcon onClick={close}>
+    <TitleBarIcon onClick={closeWindow}>
       <CloseIcon size={10} />
     </TitleBarIcon>
   )
 }
 const MinimizeButton = () => {
-  const { minimize } = useWindowOperate()
   return (
-    <TitleBarIcon onClick={minimize}>
+    <TitleBarIcon onClick={minimizeWindow}>
       <MinimizeIcon size={10} />
     </TitleBarIcon>
   )
@@ -145,28 +156,27 @@ const ThemeSubMenu = () => {
 const PWBookSubMenu = () => {
   const [t] = useTranslation()
   const pwbFile = usePwBook()
-  const { open, openEdit } = usePwBookDialog()
   const fname = useMemo(() => {
     return pwbFile ? path.basename(pwbFile) : ''
   }, [pwbFile])
 
   const openPwBook = useCallback(
     async (mode: 'open' | 'create') => {
-      const res = await open(mode)
+      const res = await openPwbookDialog(mode)
       if (res) {
         res.subscribe((f) => {
-          if (f) openEdit()
+          if (f) openPwbookEditDialog()
         })
       }
     },
-    [open, openEdit],
+    [],
   )
 
   return (
     <SubMenu>
       {pwbFile ? (
         <>
-          <TitleMenuItem text={fname} onActive={openEdit} />
+          <TitleMenuItem text={fname} onActive={openPwbookEditDialog} />
           <TitleMenuSeparator />
         </>
       ) : null}
@@ -180,15 +190,11 @@ const PWBookSubMenu = () => {
 const TitleMenu = (props: { hidden: boolean }) => {
   const { hidden } = props
   const [t] = useTranslation()
-  const { close: closeWindow } = useWindowOperate()
   const instance = usePZInstance()
   const opened = useMemo(() => instance !== undefined, [instance])
-  const openFile = useOpenFileDialog()
-  const confirm = useConfirmDialog()
-  const openSettingDialog = useSettingDialog()
   const openBuilder = useCallback(() => {
     if (instance && instance.type !== 'builder') {
-      const ob = confirm(t('has opened doc alert'), t('warning'))
+      const ob = openConfirmDialog(t('has opened doc alert'), t('warning'))
       ob.subscribe((ok) => {
         if (ok === 'ok') openPZBuilder()
       })
@@ -198,7 +204,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
   }, [instance, confirm])
   const openVideoBuilder = useCallback(() => {
     if (instance && instance.type !== 'mvbuilder') {
-      const ob = confirm(t('has opened doc alert'), t('warning'))
+      const ob = openConfirmDialog(t('has opened doc alert'), t('warning'))
       ob.subscribe((ok) => {
         if (ok === 'ok') openPZMVBuilder()
       })
@@ -209,7 +215,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
         else if (!p2) msg = t('temp directory not set warning')
 
         if (msg) {
-          const ob = confirm(msg, t('warning'))
+          const ob = openConfirmDialog(msg, t('warning'))
           ob.subscribe((ok) => {
             if (ok === 'ok') openSettingDialog()
           })
@@ -228,7 +234,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
         hidden && 'hidden',
       )}
     >
-      <TitleMenuItem text={t('open')} onActive={openFile} />
+      <TitleMenuItem text={t('open')} onActive={openOpenFileDialog} />
       <TitleMenuItem text={t('create')}>
         <SubMenu>
           <TitleMenuItem text={t('pzpack file')} onActive={openBuilder} />

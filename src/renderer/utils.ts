@@ -1,9 +1,9 @@
 import type { PZFilePacked, PZFolder } from 'pzpack'
 import { parseStringPromise } from 'xml2js'
 import { default as parseXsdDuration } from 'parse-xsd-duration'
-import { formatTime, createUrl, createFileUrl } from '../lib/utils'
+import { formatTime, createUrl, createFileUrl, lazyValue } from '../lib/utils'
 
-export { formatTime, createUrl, createFileUrl }
+export { formatTime, createUrl, createFileUrl, lazyValue }
 
 export const mergeCls = (...cls: (string | undefined | boolean)[]) => {
   return cls.filter((c) => typeof c === 'string').join(' ')

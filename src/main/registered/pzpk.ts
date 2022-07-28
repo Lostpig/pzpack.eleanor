@@ -3,7 +3,7 @@ import { type PZSubscription } from 'pzpack'
 import { AppLogger } from '../utils/logger'
 import { config } from '../utils/config'
 import { getReceiver, registerInvoke, unregisterInvoke } from '../utils/ipc'
-import { openPZloader, closePZInstance, startPZBuild, startPZMVBuild, loadIndexData } from '../utils/pzpk'
+import { openPZloader, closePZloader, cancelTask, startPZBuild, startPZMVBuild, startExtract, loadIndexData } from '../utils/pzpk'
 
 const subscriptions: PZSubscription.Subscription[] = []
 
@@ -22,8 +22,8 @@ const registerPZPKHandlers = () => {
   registerInvoke('pzpk:open', (data) => {
     return openPZloader(data.filename, data.password)
   })
-  registerInvoke('pzpk:close', (id) => {
-    return closePZInstance(id)
+  registerInvoke('pzpk:close', (hash) => {
+    return closePZloader(hash)
   })
   registerInvoke('pzpk:pack', (data) => {
     if (data.type === 'PZPACK') {
@@ -36,6 +36,12 @@ const registerPZPKHandlers = () => {
   })
   registerInvoke('pzpk:getIndex', (id) => {
     return loadIndexData(id)
+  })
+  registerInvoke('pzpk:extract', (args) => {
+    return startExtract(args)
+  })
+  registerInvoke('pzpk:canceltask', (hash) => {
+    return cancelTask(hash)
   })
 }
 const unregisterPZPKHandlers = () => {

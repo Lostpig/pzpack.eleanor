@@ -138,22 +138,13 @@ const SetNameDialog = (props: SetNameDialogProps) => {
   )
 }
 
-export const useSetNamDialog = () => {
-  const openHandler = useCallback(
-    (orgName?: string, caption?: string) => openModal(<SetNameDialog orgName={orgName} caption={caption} />),
-    [],
-  )
-  return openHandler
+export const openSetNameDialog = (orgName?: string, caption?: string) => {
+  return openModal(<SetNameDialog orgName={orgName} caption={caption} />)
 }
-export const useInfoDialog = () => {
-  const openHandler = useCallback((text: string, caption?: string, type?: InfoDialogProps['type']) => {
-    return openModal(<InfoDialog text={text} caption={caption} type={type} />)
-  }, [])
-  return openHandler
+export const openInfoDialog = (text: string, caption?: string, type?: InfoDialogProps['type']) => {
+  return openModal(<InfoDialog text={text} caption={caption} type={type} />)
 }
-export const useConfirmDialog = () => {
-  const openHandler = useCallback((text: string, caption?: string) => {
-    return openModal(<ConfirmDialog text={text} caption={caption} />) as PZSubscription.PZObservable<'ok' | undefined>
-  }, [])
-  return openHandler
+export const openConfirmDialog = (text: string, caption?: string) => {
+  return openModal(<ConfirmDialog text={text} caption={caption} />) as PZSubscription.PZObservable<'ok' | undefined>
 }
+

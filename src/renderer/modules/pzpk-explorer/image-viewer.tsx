@@ -229,7 +229,7 @@ const ViewerContent: React.FC = () => {
   const [contentBinding, setContent] = useState<ViewerContentBinding>()
   const containerRef = useRef<HTMLDivElement>(null)
   const ref = useRef<HTMLDivElement>(null)
-  const [countCache, setCountCache] = useState(count)
+  const [countCache, setCountCache] = useState(-1)
   if (countCache !== count) {
     contentBinding?.change(getImage(count))
     setCountCache(count)
@@ -246,7 +246,10 @@ const ViewerContent: React.FC = () => {
       if (opt === 'next') next()
       else if (opt === 'prev') prev()
     })
+    c?.change(getImage(countCache))
+
     setContent(c)
+
     return () => {
       subscription?.unsubscribe()
       actSubscription?.unsubscribe()

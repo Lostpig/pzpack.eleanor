@@ -2,12 +2,12 @@ import React, { memo, useContext, createContext, useMemo, useEffect, useReducer,
 import { useTranslation } from 'react-i18next'
 import type { PZVideo } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
-import { useInfoDialog, useSetNamDialog } from '../common'
+import { info, openSetNameDialog } from '../common'
 import { FiletypeIcon } from '../icons'
 import { PZButton } from '../shared'
 import { RendererLogger } from '../../service/logger'
 import { selectVideos } from '../../service/io'
-import { useBuilderDialogs } from './dialogs'
+import { openBuildDialog } from './dialogs'
 
 type BuilderContextType = {
   builder: PZVideo.PZMVIndexBuilder
@@ -16,7 +16,6 @@ const BuilderContext = createContext<BuilderContextType>({} as BuilderContextTyp
 
 const BuilderVideo: React.FC<{ video: PZVideo.PZMVIndexFile }> = memo(({ video }) => {
   const { builder } = useContext(BuilderContext)
-  const openSetNameDialog = useSetNamDialog()
   const [t] = useTranslation()
   const deleteHandler = useCallback(() => {
     builder.removeVideo(video.source)
@@ -26,7 +25,7 @@ const BuilderVideo: React.FC<{ video: PZVideo.PZMVIndexFile }> = memo(({ video }
     sub.subscribe((name) => {
       if (name) builder.renameVideo(video.name, name)
     })
-  }, [video, builder, openSetNameDialog])
+  }, [video, builder])
 
   return (
     <div
@@ -64,16 +63,13 @@ const BuilderOperateBar: React.FC = memo(() => {
   const [t] = useTranslation()
   const { builder } = useContext(BuilderContext)
 
-  const info = useInfoDialog()
-  const { openBuildDialog } = useBuilderDialogs()
-
   const addVideos = useCallback(() => {
     selectVideos().then((files) => {
       for (const file of files) {
         builder.addVideo(file)
       }
     })
-  }, [builder, selectVideos])
+  }, [builder])
   const toBuild = useCallback(() => {
     try {
       builder.checkEmpty()

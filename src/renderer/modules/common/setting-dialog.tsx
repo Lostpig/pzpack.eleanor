@@ -2,15 +2,14 @@ import React, { useCallback, useContext, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PZButton, PZText } from '../shared'
 import { ModalContext } from './modal'
-import { DialogBase, useInfoDialog } from './dialogs'
+import { DialogBase, openInfoDialog } from './dialogs'
 import { openModal, closeModal } from '../../service/modal'
 import { openDir, openFile } from '../../service/io'
-import { getConfig, setConfig, checkFfmpeg, checkExternalPalyer } from '../../service/config'
+import { getConfig, setConfig, checkFfmpeg, checkExternalPlayer } from '../../service/config'
 
 const SettingDialog: React.FC = () => {
   const [t] = useTranslation()
   const { id } = useContext(ModalContext)
-  const info = useInfoDialog()
   const [ffmpegPath, setFfmpegPath] = useState('')
   const [tempPath, setTempPath] = useState('')
   const [externalPlayer, setExternalPlayer] = useState('')
@@ -22,11 +21,11 @@ const SettingDialog: React.FC = () => {
   }, [])
   const save = useCallback(() => {
     if (!checkFfmpeg(ffmpegPath)) {
-      info(t('ffmpeg path not right'), t('warning'), 'warning')
+      openInfoDialog(t('ffmpeg path not right'), t('warning'), 'warning')
       return
     }
-    if (externalPlayer && !checkExternalPalyer(externalPlayer)) {
-      info(t('external player path not right'), t('warning'), 'warning')
+    if (externalPlayer && !checkExternalPlayer(externalPlayer)) {
+      openInfoDialog(t('external player path not right'), t('warning'), 'warning')
       return
     }
 
@@ -39,7 +38,7 @@ const SettingDialog: React.FC = () => {
         closeModal(id)
       })
       .catch((err) => {
-        info(err?.message ?? t('unknown error'), t('error'), 'error')
+        openInfoDialog(err?.message ?? t('unknown error'), t('error'), 'error')
       })
   }, [ffmpegPath, tempPath, externalPlayer])
   const selectFfmpeg = useCallback(() => {
@@ -105,9 +104,6 @@ const SettingDialog: React.FC = () => {
   )
 }
 
-export const useSettingDialog = () => {
-  const openHandler = useCallback(() => {
-    return openModal(<SettingDialog />)
-  }, [])
-  return openHandler
+export const openSettingDialog = () => {
+  return openModal(<SettingDialog />)
 }

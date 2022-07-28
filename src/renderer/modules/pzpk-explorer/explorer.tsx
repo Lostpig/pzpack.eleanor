@@ -3,14 +3,17 @@ import type { PZIndexReader, PZFolder, PZFilePacked } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
 import { useTranslation } from 'react-i18next'
 
-import { FiletypeIcon, RightIcon, InfoIcon } from '../icons'
+import { FiletypeIcon, RightIcon, InfoIcon, ExtractIcon } from '../icons'
 import { PZButton } from '../shared'
 import { formatSize, isImageFile } from '../../utils'
 import { ExplorerContext } from './hooks'
-import { useInfoDialog } from '../common'
+import { info } from '../common'
 import { ImageViewer } from './image-viewer'
 import type { PZLoaderStatus } from '../../../lib/declares'
 import { openModal } from '../../service/modal'
+import { openDir, saveFile } from '../../service/io'
+import { extractAll, extractFile, extractFolder } from '../../service/pzpack'
+import { openExtractDialog } from './extract'
 
 type ContentContextType = {
   navigate: (folder: PZFolder) => void
@@ -26,15 +29,28 @@ const Breadcrumbs: React.FC<{ current: PZFolder }> = memo((props) => {
   const { navigate } = useContext(ContentContext)
   const { current } = props
   const list = indices.getFoldersToRoot(current)
-  const info = useInfoDialog()
   const showDesc = useCallback(() => {
     info(status.description, t('file description'))
-  }, [status, info, t])
+  }, [status])
+  const extractAllHandler = useCallback(async () => {
+    const targetDir = await openDir()
+    if (targetDir) {
+      const result = await extractAll(targetDir)
+      if (result.success) {
+        openExtractDialog(result.task)
+      } else {
+        info(result.message ?? t('unknown error'), t('error'), 'error')
+      }
+    }
+  }, [indices])
 
   return (
     <div className="py-1 px-3 flex items-center justify-start shadow-sm dark:shadow-black">
-      <PZButton type="icon" onClick={showDesc}>
+      <PZButton type="icon" onClick={showDesc} title={t('show info')}>
         <InfoIcon size={20} />
+      </PZButton>
+      <PZButton type="icon" onClick={extractAllHandler} title={t('extract all')}>
+        <ExtractIcon size={20} />
       </PZButton>
       <ExplorerInfoSeparator />
       {list.map((f) => {
@@ -54,6 +70,18 @@ const Breadcrumbs: React.FC<{ current: PZFolder }> = memo((props) => {
 const ExolorerFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
   const { folder } = props
   const { navigate } = useContext(ContentContext)
+  const [t] = useTranslation()
+  const extractHandler = useCallback(async () => {
+    const targetDir = await openDir()
+    if (targetDir) {
+      const result = await extractFolder(folder, targetDir)
+      if (result.success) {
+        openExtractDialog(result.task)
+      } else {
+        info(result.message ?? t('unknown error'), t('error'), 'error')
+      }
+    }
+  }, [folder])
 
   return (
     <div
@@ -63,12 +91,27 @@ const ExolorerFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
       <FiletypeIcon type="folder" size={20} />
       <div className="flex-1 text-ellipsis pl-4 overflow-hidden whitespace-nowrap">{folder.name}</div>
       <div className="text-right w-30 pr-4"></div>
+      <div className="text-right w-32 pr-4 text-sm">
+        <PZButton type='link' onClick={extractHandler} title={t('extract folder')}>{t('extract')}</PZButton>
+      </div>
     </div>
   )
 })
 const ExolorerFile: React.FC<{ file: PZFilePacked }> = memo((props) => {
   const { file } = props
   const { openImage } = useContext(ExplorerContext)
+  const [t] = useTranslation()
+  const extractHandler = useCallback(async () => {
+    const target = await saveFile()
+    if (target) {
+      const result = await extractFile(file, target)
+      if (result.success) {
+        openExtractDialog(result.task)
+      } else {
+        info(result.message ?? t('unknown error'), t('error'), 'error')
+      }
+    }
+  }, [file])
 
   return (
     <div
@@ -78,6 +121,9 @@ const ExolorerFile: React.FC<{ file: PZFilePacked }> = memo((props) => {
       <FiletypeIcon type={file.ext} size={20} />
       <div className="flex-1 text-ellipsis pl-4 overflow-hidden whitespace-nowrap">{file.name}</div>
       <div className="text-right w-32 pr-4">{formatSize(file.size)}</div>
+      <div className="text-right w-32 pr-4 text-sm">
+        <PZButton type='link' onClick={extractHandler} title={t('extract file')}>{t('extract')}</PZButton>
+      </div>
     </div>
   )
 })

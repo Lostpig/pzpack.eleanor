@@ -1,6 +1,5 @@
 import {
   OpenPzFile,
-  PZSubscription,
   PZBuilder,
   PZVideo,
   getPZPackFileMate,
@@ -9,6 +8,7 @@ import {
   type PZLoader,
   type PZTask,
   type BuildProgress,
+  type ExtractProgress,
 } from 'pzpack'
 import type {
   PZPKOpenResult,
@@ -16,6 +16,7 @@ import type {
   PZMVBuildOptions,
   PZPKIndexResult,
   PZPKPackResult,
+  PZExtractArgs,
 } from '../../lib/declares'
 import type { PasswordBook } from './pwbook'
 import { config } from './config'
@@ -25,54 +26,56 @@ import { instance as pzServer } from './pzpk.server'
 
 const serverPort = 42506
 
+type UsableTask =
+  | PZTask.AsyncTask<BuildProgress>
+  | PZTask.AsyncTask<PZVideo.PZMVProgress>
+  | PZTask.AsyncTask<ExtractProgress>
 interface PZContext {
-  state: 'building' | 'mvbuilding' | 'explorer'
-  hash: string
-  instance: PZTask.AsyncTask<BuildProgress> | PZTask.AsyncTask<PZVideo.PZMVProgress> | PZLoader
-}
-interface PZContextBuilding extends PZContext {
-  state: 'building'
-  instance: PZTask.AsyncTask<BuildProgress>
-}
-interface PZContextMVBuilding extends PZContext {
-  state: 'mvbuilding'
-  instance: PZTask.AsyncTask<PZVideo.PZMVProgress>
-}
-interface PZContextExplorer extends PZContext {
-  state: 'explorer'
-  instance: PZLoader
-}
-type PZContexts = PZContextBuilding | PZContextMVBuilding | PZContextExplorer
-
-const PZInstanceSubject = new PZSubscription.PZBehaviorSubject<PZContexts | undefined>(undefined)
-
-const closeInstance = (context: PZContexts) => {
-  if (context.state === 'explorer') {
-    context.instance.close()
-  } else {
-    context.instance.cancel()
+  loader?: {
+    hash: string
+    instance: PZLoader
+  }
+  task?: {
+    hash: string
+    instance: UsableTask
   }
 }
-const pushPZLoader = (hash: string, loader: PZLoader) => {
+const runningContext: PZContext = {}
+const closeLoader = () => {
+  if (runningContext.loader) {
+    runningContext.loader.instance.close()
+    runningContext.loader = undefined
+  }
+}
+const bindLoader = (hash: string, loader: PZLoader) => {
+  closeLoader()
+
   pzServer.binding(hash, loader)
-  PZInstanceSubject.next({ state: 'explorer', hash, instance: loader })
+  runningContext.loader = { hash, instance: loader }
+}
+
+const closeTask = () => {
+  if (runningContext.task) {
+    runningContext.task.instance.cancel()
+    runningContext.task = undefined
+  }
+}
+const bindTask = (hash: string, task: UsableTask) => {
+  closeTask()
+  runningContext.task = { hash, instance: task }
 }
 
 export const openPZloader = async (file: string, password: string | Buffer): Promise<PZPKOpenResult> => {
-  const context = PZInstanceSubject.current
   let loader: PZLoader | undefined
 
   try {
-    if (context && context.state === 'explorer') {
-      if (file === context.instance.filename) return { success: false, message: 'already opened file' }
-    }
+    if (file === runningContext.loader?.instance.filename) return { success: false, message: 'already opened file' }
 
     loader = OpenPzFile(file, password)
     const hashData = Buffer.concat([loader.loadIndexBuffer(), Buffer.from(file, 'utf-8')])
     const hash = PZHelper.sha256Hex(hashData)
 
-    if (context) closeInstance(context)
-    pushPZLoader(hash, loader)
+    bindLoader(hash, loader)
     await pzServer.start(serverPort)
 
     return {
@@ -97,10 +100,7 @@ export const openPZloader = async (file: string, password: string | Buffer): Pro
   }
 }
 export const tryOpenPZloader = (file: string, book: PasswordBook): Promise<PZPKOpenResult> | PZPKOpenResult => {
-  const context = PZInstanceSubject.current
-  if (context && context.state === 'explorer') {
-    if (file === context.instance.filename) return { success: false, message: 'already opened file' }
-  }
+  if (file === runningContext.loader?.instance.filename) return { success: false, message: 'already opened file' }
 
   const matedata = getPZPackFileMate(file)
   if (book.has(matedata.pwHash)) {
@@ -110,24 +110,62 @@ export const tryOpenPZloader = (file: string, book: PasswordBook): Promise<PZPKO
     return { success: false, message: 'no matching password' }
   }
 }
+export const closePZloader = (hash: string) => {
+  if (hash === runningContext.loader?.hash) {
+    closeLoader()
+  }
+}
 export const loadIndexData = (hash: string): PZPKIndexResult => {
-  const context = PZInstanceSubject.current
-  if (context?.state === 'explorer' && context.hash === hash) {
-    const loader = context.instance
-    const idxBuf = loader.loadIndexBuffer()
-
+  const loader = runningContext.loader
+  if (loader?.hash === hash) {
+    const idxBuf = loader.instance.loadIndexBuffer()
     return { success: true, data: idxBuf }
   } else {
     return { success: false, message: 'load index failed' }
   }
 }
 
-export const closePZInstance = (hash: string) => {
-  const current = PZInstanceSubject.current
+export const startExtract = (args: PZExtractArgs): PZPKPackResult => {
+  const loader = runningContext.loader
+  if (loader?.hash === args.hash) {
+    const taskHash = PZHelper.sha256Hex(JSON.stringify(args))
+    let task: PZTask.AsyncTask<ExtractProgress>
 
-  if (current && current.hash === hash) {
-    closeInstance(current)
-    PZInstanceSubject.next(undefined)
+    if (args.type === 'file') {
+      const file = loader.instance.loadIndex().findFile(args.source.folderId, args.source.filename)
+      if (!file) {
+        return { success: false, message: 'extract file not found' }
+      }
+
+      task = loader.instance.extractFileAsync(file, args.target)
+    } else if (args.type === 'folder') {
+      const folder = loader.instance.loadIndex().getFolder(args.source.folderId)
+      if (!folder) {
+        return { success: false, message: 'extract folder not found' }
+      }
+
+      task = loader.instance.extractFolderAsync(folder, args.target)
+    } else {
+      task = loader.instance.extractAllAsync(args.target)
+    }
+
+    const sender = getSender('pzpk:extract')
+    const completer = getSender('pzpk:extractcomplete')
+    const errorSender = getSender('pzpk:extracterror')
+    task.subscribe(
+      (p) => sender.send({ hash: taskHash, progress: p }),
+      (err) => {
+        errorSender.send({ hash: taskHash, error: err.message })
+      },
+      () => {
+        completer.send({ hash: taskHash, canceled: task.canceled })
+      },
+    )
+    bindTask(taskHash, task)
+
+    return { success: true, hash: taskHash }
+  } else {
+    return { success: false, message: 'load index failed' }
   }
 }
 export const startPZBuild = (indexData: string, options: PZBuildOptions): PZPKPackResult => {
@@ -147,11 +185,15 @@ export const startPZBuild = (indexData: string, options: PZBuildOptions): PZPKPa
   const errorSender = getSender('pzpk:builderror')
   task.subscribe(
     (p) => sender.send({ hash, progress: p }),
-    (err) => { errorSender.send({ hash, error: err.message }) },
+    (err) => {
+      errorSender.send({ hash, error: err.message })
+    },
     () => {
       completer.send({ hash, canceled: task.canceled })
-    }
+    },
   )
+
+  bindTask(hash, task)
 
   return { success: true, hash }
 }
@@ -173,10 +215,21 @@ export const startPZMVBuild = (target: string, indexData: string, options: PZMVB
   const errorSender = getSender('pzpk:builderror')
   task.subscribe(
     (p) => sender.send({ hash, progress: p }),
-    (err) => { errorSender.send({ hash, error: err.message }) },
+    (err) => {
+      errorSender.send({ hash, error: err.message })
+    },
     () => {
       completer.send({ hash, canceled: task.canceled })
-    }
+    },
   )
+
+  bindTask(hash, task)
+
   return { success: true, hash }
+}
+
+export const cancelTask = (hash: string) => {
+  if (runningContext.task?.hash === hash) {
+    closeTask()
+  }
 }

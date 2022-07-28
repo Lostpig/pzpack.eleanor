@@ -33,25 +33,25 @@ export interface PZLoaderStatus {
   size: number
 }
 
-type PZPKOpenSuccess = {
+export type PZPKOpenSuccess = {
   success: true
   hash: string
   port: number
   loaderStatus: PZLoaderStatus
 }
-type PZPKIndexSuccess = {
+export type PZPKIndexSuccess = {
   success: true
   data: Buffer
 }
-type PZPKPackSuccess = {
+export type PZPKPackSuccess = {
   success: true
   hash: string
 }
-type PZPKFailedResult = {
+export type PZPKFailedResult = {
   success: false
   message: string
 }
-type PZPKSuccessResult = {
+export type PZPKSuccessResult = {
   success: true
 }
 export type PZPKBaseResult = PZPKSuccessResult | PZPKFailedResult
@@ -77,6 +77,13 @@ export interface PZPKMvBuildArgs {
   options: PZMVBuildOptions
 }
 export type PZPKPackArgs = PZPKBuildArgs | PZPKMvBuildArgs
+
+export type PZExtractArgs = {
+  hash: string
+  type: 'all' | 'folder' | 'file'
+  source: { folderId: number, filename: string }
+  target: string
+}
 
 export type PWBookArgs = {
   mode: 'open' | 'create'

@@ -2,7 +2,7 @@ import React, { useState, useContext, useRef, useEffect, useCallback, memo, crea
 import { useTranslation } from 'react-i18next'
 import type { PZVideo } from 'pzpack'
 import { mergeCls, formatTime, defFilters } from '../../utils'
-import { ModalContext, DialogBase, useInfoDialog } from '../common'
+import { ModalContext, DialogBase, info } from '../common'
 import { PZText, PZButton, PZPassword, PZSelect, PZProgress } from '../shared'
 import { useAudioCodec, useVideoCodec } from './hooks'
 import { RendererLogger } from '../../service/logger'
@@ -88,9 +88,8 @@ const BuildingDialog = (props: BuildingDialogProps) => {
   const [usedTime, setUsedTime] = useState(formatTime(0))
   const { id } = useContext(ModalContext)
   const [progress, setProgress] = useState<PZVideo.PZMVProgress>()
-  const info = useInfoDialog()
   const completeHandle = useCallback(
-    (taskState: { canceled: boolean, error?: Error }) => {
+    (taskState: { canceled: boolean; error?: Error }) => {
       closeModal(id)
       if (taskState.error) {
         info(taskState.error.message || t('unknown error'), t('error'), 'error')
@@ -105,15 +104,19 @@ const BuildingDialog = (props: BuildingDialogProps) => {
     [info, id],
   )
   useEffect(() => {
-    const subscription = task.observable.subscribe((p: PZVideo.PZMVProgress) => {
-      setProgress(p)
-      const second = (Date.now() - props.start) / 1000
-      setUsedTime(formatTime(second))
-    }, (err) => {
-      completeHandle({ canceled: false, error: err })
-    }, () => {
-      completeHandle({ canceled: task.canceled })
-    })
+    const subscription = task.observable.subscribe(
+      (p: PZVideo.PZMVProgress) => {
+        setProgress(p)
+        const second = (Date.now() - props.start) / 1000
+        setUsedTime(formatTime(second))
+      },
+      (err) => {
+        completeHandle({ canceled: false, error: err })
+      },
+      () => {
+        completeHandle({ canceled: task.canceled })
+      },
+    )
 
     return () => subscription.unsubscribe()
   }, [task])
@@ -428,13 +431,6 @@ const ToBuildDialog = memo(({ indexBuilder }: ToBuildDialogProps) => {
 })
 // #endregion
 
-export const useBuilderDialogs = () => {
-  const openBuildDialog = useCallback(
-    (indexBuilder: PZVideo.PZMVIndexBuilder) => openModal(<ToBuildDialog indexBuilder={indexBuilder} />),
-    [],
-  )
-
-  return {
-    openBuildDialog,
-  }
+export const openBuildDialog = (indexBuilder: PZVideo.PZMVIndexBuilder) => {
+  return openModal(<ToBuildDialog indexBuilder={indexBuilder} />)
 }

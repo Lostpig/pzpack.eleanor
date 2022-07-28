@@ -1,9 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
-import { FirstLetterUpper } from '../../utils'
-import type { PackageInfo, Theme } from '../../../lib/declares'
-import { getInfo } from '../../service/global'
+import { useEffect, useState, useCallback } from 'react'
+import type {  Theme } from '../../../lib/declares'
 import { modalObservable } from '../../service/modal'
-import { getConfig } from '../../service/config'
 import { PZInstanceObservable, type PZInstance } from '../../service/pzpack'
 import { pwbookNotify } from '../../service/pwbook'
 import { subscribeChannel, sendToChannel, invokeIpc } from '../../service/ipc'
@@ -61,24 +58,6 @@ export const useWindowState = () => {
 
   return [maximize, toggleMaximize] as [boolean, () => void]
 }
-export const useWindowOperate = () => {
-  const close = useCallback(() => {
-    sendToChannel('window:operate', 'close')
-  }, [])
-  const minimize = useCallback(() => {
-    sendToChannel('window:operate', 'minimize')
-  }, [])
-
-  return { close, minimize }
-}
-
-export const usePackage = () => {
-  const pkg: PackageInfo = useMemo(() => {
-    const globalInfo = getInfo()
-    return { ...globalInfo.pkgInfo, name: FirstLetterUpper(globalInfo.pkgInfo.name) }
-  }, [])
-  return pkg
-}
 export const useTheme = (): [string, (theme: Theme) => void] => {
   const [theme, setTheme] = useState('system')
   useEffect(() => {
@@ -92,19 +71,6 @@ export const useTheme = (): [string, (theme: Theme) => void] => {
   }
 
   return [theme, changeTheme]
-}
-
-export const useExternalPlayer = () => {
-  const openExternalPlayer = useCallback((url: string) => {
-    sendToChannel('exec:explayer', { url })
-  }, [])
-  const checkExternalPlayer = useCallback(() => {
-    return getConfig('externalPlayer').then((val) => {
-      return !!val
-    })
-  }, [])
-
-  return { openExternalPlayer, checkExternalPlayer }
 }
 export const usePwBook = () => {
   const [pwbookFile, setPwbookFile] = useState<string>()

@@ -3,11 +3,11 @@ import React, { memo, useState, useContext, createContext, useMemo, useEffect, u
 import { useTranslation } from 'react-i18next'
 import { PZHelper, type PZFolder, type PZFileBuilding, type PZIndexBuilder } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
-import { useInfoDialog, useSetNamDialog } from '../common'
+import { info, openSetNameDialog } from '../common'
 import { FiletypeIcon, RightIcon } from '../icons'
 import { PZButton } from '../shared'
 import { RendererLogger } from 'renderer/service/logger'
-import { useBuilderDialogs } from './dialogs'
+import { openBuildDialog } from './dialogs'
 import { openDir, selectFiles } from '../../service/io'
 
 type ContentContextType = {
@@ -81,7 +81,6 @@ const BuilderFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
   const [t] = useTranslation()
   const { builder } = useContext(BuilderContext)
   const { navigate } = useContext(ContentContext)
-  const openSetNameDialog = useSetNamDialog()
   const deleteHandler = useCallback(() => {
     builder.removeFolder(folder)
   }, [folder])
@@ -90,7 +89,7 @@ const BuilderFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
     sub.subscribe((name) => {
       if (name) builder.moveFolder(folder, folder.pid, name)
     })
-  }, [folder, builder, openSetNameDialog])
+  }, [folder, builder])
 
   return (
     <div
@@ -113,7 +112,6 @@ const BuilderFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
 const BuilderFile: React.FC<{ file: PZFileBuilding }> = memo((props) => {
   const { file } = props
   const { builder } = useContext(BuilderContext)
-  const openSetNameDialog = useSetNamDialog()
   const [t] = useTranslation()
   const deleteHandler = useCallback(() => {
     builder.removeFile(file)
@@ -123,7 +121,7 @@ const BuilderFile: React.FC<{ file: PZFileBuilding }> = memo((props) => {
     sub.subscribe((name) => {
       if (name) builder.moveFile(file, file.pid, name)
     })
-  }, [file, builder, openSetNameDialog])
+  }, [file, builder])
 
   return (
     <div
@@ -166,16 +164,13 @@ const BuilderList: React.FC<{ current: PZFolder; update: number }> = memo((props
 const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) => {
   const [t] = useTranslation()
   const { builder } = useContext(BuilderContext)
-  const openSetNameDialog = useSetNamDialog()
-  const { openBuildDialog } = useBuilderDialogs()
-  const info = useInfoDialog()
 
   const createFolder = useCallback(() => {
     const sub = openSetNameDialog()
     sub.subscribe((name) => {
       if (name) builder.addFolder(name, current.id)
     })
-  }, [builder, current, openSetNameDialog])
+  }, [builder, current])
   const addFolder = useCallback(() => {
     openDir().then((dir) => {
       if (dir) addDir(builder, current, dir)

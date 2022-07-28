@@ -183,31 +183,24 @@ const PwBookEditDialog: React.FC<PwBookEditDialogProps> = (props) => {
   )
 }
 
-export const usePwBookDialog = () => {
-  const openHandler = useCallback(
-    async (mode: 'open' | 'create') => {
-      let file
-      if (mode === 'open') {
-        file = await openFile([defFilters.PZPwBook])
-      } else {
-        file = await saveFile([defFilters.PZPwBook])
-      }
+export const openPwbookDialog = async (mode: 'open' | 'create') => {
+  let file
+  if (mode === 'open') {
+    file = await openFile([defFilters.PZPwBook])
+  } else {
+    file = await saveFile([defFilters.PZPwBook])
+  }
 
-      if (file) {
-        return openModal(<OpenPwBookDialog path={file} mode={mode} />)
-      } else {
-        return undefined
-      }
-    },
-    [],
-  )
-  const editHandler = useCallback(async () => {
-    const current = await getCurrentPasswordBook()
+  if (file) {
+    return openModal(<OpenPwBookDialog path={file} mode={mode} />)
+  } else {
+    return undefined
+  }
+}
+export const openPwbookEditDialog = async () => {
+  const current = await getCurrentPasswordBook()
 
-    if (current.success) {
-      openModal(<PwBookEditDialog items={current.items} />)
-    }
-  }, [])
-
-  return { open: openHandler, openEdit: editHandler }
+  if (current.success) {
+    openModal(<PwBookEditDialog items={current.items} />)
+  }
 }

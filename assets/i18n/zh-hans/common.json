@@ -41,6 +41,7 @@
   "folder name": "文件夹名",
   "file name": "文件名",
   "name cannot be empty": "名称不能为空",
+  "show info": "显示信息",
   "error": "错误",
   "warning": "警告",
   "info": "信息",
@@ -60,6 +61,15 @@
   "save to": "保存到",
   "play": "播放",
   "play all": "全部播放",
+
+  "extract": "提取",
+  "extract file": "提取文件",
+  "extract folder": "提取文件夹",
+  "extract all": "全部提取",
+  "extracting": "提取中...",
+  "extract canceled": "提取已取消",
+  "extract complete message ##": "提取任务已完成，共耗时【{{time}}】",
+  "extract complete": "提取任务已完成",
 
   "file": "文件",
   "complete": "完成",

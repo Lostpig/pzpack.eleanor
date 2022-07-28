@@ -1,4 +1,4 @@
-import type { PZSubscription, BuildProgress, PZVideo } from 'pzpack'
+import type { PZSubscription, BuildProgress, ExtractProgress, PZVideo } from 'pzpack'
 import type {
   ConfigKey,
   ConfigValue,
@@ -9,6 +9,7 @@ import type {
   PZPKIndexResult,
   PZPKPackResult,
   PZPKPackArgs,
+  PZExtractArgs,
   PWBookArgs,
   PWBookResult,
   PZPKBaseResult,
@@ -28,6 +29,9 @@ export interface RendererChannels {
   'pzpk:mvbuilding': { hash: string; progress: PZVideo.PZMVProgress }
   'pzpk:builderror': { hash: string; error: string }
   'pzpk:buildcomplete': { hash: string; canceled: boolean }
+  'pzpk:extract': { hash: string; progress: ExtractProgress }
+  'pzpk:extracterror': { hash: string; error: string }
+  'pzpk:extractcomplete': { hash: string; canceled: boolean }
 
   'pwbook:update': { items: string[] }
 }
@@ -71,6 +75,8 @@ interface IPCInvokes {
   'pzpk:close': [string, void]
   'pzpk:pack': [PZPKPackArgs, PZPKPackResult]
   'pzpk:getIndex': [string, PZPKIndexResult]
+  'pzpk:extract': [PZExtractArgs, PZPKPackResult]
+  'pzpk:canceltask': [string, void]
 
   'pwbook:close': [void, PZPKBaseResult]
   'pwbook:current': [void, PWBookResult]

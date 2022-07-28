@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { PZIndexBuilder, BuildProgress } from 'pzpack'
 
 import { mergeCls, formatTime, defFilters } from '../../utils'
-import { ModalContext, DialogBase, useInfoDialog } from '../common'
+import { ModalContext, DialogBase, info } from '../common'
 import { PZText, PZButton, PZPassword, PZProgress } from '../shared'
 import  { type IPCTask, startPZBuild } from '../../service/pzpack'
 import { RendererLogger } from '../../service/logger'
@@ -20,7 +20,6 @@ const BuildingDialog = (props: BuildingDialogProps) => {
   const [usedTime, setUsedTime] = useState(formatTime(0))
   const { id } = useContext(ModalContext)
   const [progress, setProgress] = useState<BuildProgress>()
-  const info = useInfoDialog()
   const completeHandle = useCallback(
     (taskState: { canceled: boolean; error?: Error }) => {
       closeModal(id)
@@ -170,13 +169,6 @@ const ToBuildDialog = memo((props: ToBuildDialogProps) => {
   )
 })
 
-export const useBuilderDialogs = () => {
-  const openBuildDialog = useCallback(
-    (indexBuilder: PZIndexBuilder) => openModal(<ToBuildDialog indexBuilder={indexBuilder} />),
-    [],
-  )
-
-  return {
-    openBuildDialog,
-  }
+export const openBuildDialog = (indexBuilder: PZIndexBuilder) => {
+  return openModal(<ToBuildDialog indexBuilder={indexBuilder} />)
 }
