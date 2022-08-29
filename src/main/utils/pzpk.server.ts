@@ -1,27 +1,20 @@
 import { createServer, type Server, type ServerResponse, type IncomingMessage } from 'http'
 import type { PZLoader } from 'pzpack'
-import { AppLogger } from './logger'
+import * as mime from 'mime'
+import { appLogger } from './logger'
 
-/*
-  url matching
-  /:id/videos
-  /:id/playlist.pls
-  /:id/:fid/:filename
- */
+const parseRange = (range: string | undefined, total: number) => {
+  if (!range) return undefined
 
-type ErrorResult = {
-  type: 'error'
-  message: string
+  const parts = range
+    .trim()
+    .replace(/bytes=/, '')
+    .split('-')
+  const start = parseInt(parts[0], 10)
+  const end = Math.min(total - 1, parts[1] ? parseInt(parts[1], 10) : total - 1)
+
+  return { start, end }
 }
-type PlaylistResult = {
-  type: 'playlist'
-}
-type FileResult = {
-  type: 'file'
-  fid: number
-  filename: string
-}
-type PathMatchingResult = ErrorResult | PlaylistResult | FileResult
 
 class EleanorServer {
   private server?: Server
@@ -29,9 +22,15 @@ class EleanorServer {
 
   private bindingLoader?: PZLoader
   private bindingHash?: string
+
   binding(hash: string, loader: PZLoader) {
+    if (ENV_DEV) appLogger.debug('EleanorServer binding:' + hash)
     this.bindingHash = hash
     this.bindingLoader = loader
+  }
+  unbind () {
+    this.bindingHash = undefined
+    this.bindingLoader = undefined
   }
   close() {
     if (this.server) {
@@ -52,120 +51,101 @@ class EleanorServer {
 
     return new Promise<void>((resolve) => {
       this.server!.listen(this.port, () => {
-        AppLogger.debug('EleanorServer start at port ' + this.port)
+        if (ENV_DEV) appLogger.debug('EleanorServer start at port ' + this.port)
         resolve()
       })
     })
   }
 
-  private parsePath(p: string): PathMatchingResult {
-    const items = p.split('/').filter((n) => n !== '')
-    if (items[0] !== this.bindingHash!) {
-      return {
-        type: 'error',
-        message: 'loader hash invalid',
-      }
-    }
-
-    if (items.length === 2 && items[1] === 'playlist.pls') {
-      return { type: 'playlist' }
-    }
-    if (items.length === 3) {
-      const fid = parseInt(items[1], 10)
-      const filename = items[2] === 'play.mpd' ? 'output.mpd' : items[2]
-
-      return {
-        type: 'file',
-        fid,
-        filename,
-      }
-    }
-
-    return { type: 'error', message: 'url invalid' }
-  }
   private async process(req: IncomingMessage, res: ServerResponse) {
     if (!req.url) return this.responseError(res)
-    if (!this.bindingHash || !this.bindingLoader) return this.responseError(res, 'pzpack file not opened')
+    if (!this.bindingHash || !this.bindingLoader) return this.responseError(res, 500, 'pzpack file not opened')
 
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`)
-    AppLogger.debug('EleanorServer request: ' + parsedUrl.toString())
+    if (ENV_DEV) appLogger.debug('EleanorServer request: ' + parsedUrl.toString())
     const pathname = decodeURI(parsedUrl.pathname)
-    const presult = this.parsePath(pathname)
 
-    switch (presult.type) {
-      case 'file':
-        return this.responseFile(res, presult)
-      case 'playlist':
-        return this.responsePlaylist(res)
-      case 'error':
-        return this.responseError(res, presult.message)
-      default:
-        return this.responseError(res)
+    if (pathname.startsWith('/file/')) {
+      return this.responseFile(pathname, req, res)
+    } else {
+      return this.responseError(res, 404, `${parsedUrl.pathname} not found`)
     }
   }
-
-  private responseError(res: ServerResponse, err?: string) {
+  private responseError(res: ServerResponse, code = 500, err?: string) {
     res.writeHead(
-      500,
+      code,
       this.createHead({
         'content-type': 'text/html; charset=utf-8',
       }),
     )
     res.end(err || 'Unknown Error')
   }
-  private responsePlaylist(res: ServerResponse) {
-    const loader = this.bindingLoader!
-    if (loader.type !== 'PZVIDEO') {
-      return this.responseError(res, 'opened file is not a pzvideo file')
+  private async responseFile(pathname: string, req: IncomingMessage, res: ServerResponse) {
+    if (!this.bindingLoader) {
+      return this.responseError(res, 500, 'pzpack file not opened')
+    }
+    const pathParts = pathname.split('/').filter(s => !!s)
+    if (this.bindingHash !== pathParts[1]) {
+      return this.responseError(res, 403, 'hash check failed')
+    }
+    const fid = parseInt(pathParts[2], 10)
+
+    const loader = this.bindingLoader
+    const idx = loader.index
+    const file = idx.fileOfId(fid)
+    if (!file) return this.responseError(res, 404, 'file not found')
+
+    const range = parseRange(req.headers && req.headers.range, file.originSize)
+    const start = range?.start ?? 0
+    const end = (range?.end ?? file.originSize - 1) + 1
+    const chunksize = end - start
+    const contentType = mime.getType(file.fullname) ?? 'application/octet-stream'
+
+    if (ENV_DEV) appLogger.debug(`request file: start = ${start}, end=${end}, size = ${file.originSize}, chunk = ${chunksize}`)
+    if (range) {
+      res.writeHead(
+        206,
+        this.createHead({
+          'Content-Range': `bytes ${start}-${end - 1}/${file.originSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': contentType,
+        }),
+      )
+    } else {
+      res.writeHead(
+        200,
+        this.createHead({
+          'content-type': contentType,
+          'content-length': chunksize,
+        }),
+      )
+    }
+    if (req.method === 'HEAD') {
+      res.end()
+      return
     }
 
-    const idx = loader.loadIndex()
-    const { folders } = idx.getChildren(idx.root)
-    const texts = ['[playlist]']
-    folders.forEach((f, i) => {
-      texts.push(`File${i + 1}=http://localhost:${this.port}/${this.bindingHash}/${f.id}/play.mpd`)
-      texts.push(`Title${i + 1}=${f.name}`)
+    let offset = start
+    const reader = loader.craeteFileReader(file)
+    const writeRes = async () => {
+      const data = await reader.readByBlock(offset, end)
+      res.write(data)
+
+      offset += data.byteLength
+      if (offset >= end) {
+        if (ENV_DEV) appLogger.debug(`response file length = ${offset}`)
+        res.end()
+      }
+    }
+
+    res.on('close', () => {
+      appLogger.info('file response close')
     })
-    texts.push('')
-    texts.push('NumberOfEntries=' + folders.length)
-    texts.push('Version=2')
-    const data = texts.join('\n')
-
-    res.writeHead(
-      200,
-      this.createHead({
-        'content-type': 'application/text; charset=utf-8',
-        'cache-control': 'no-store',
-      }),
-    )
-    res.end(data)
-  }
-  private async responseFile(res: ServerResponse, options: FileResult) {
-    const loader = this.bindingLoader!
-
-    const idx = loader.loadIndex()
-    const file = idx.findFile(options.fid, options.filename)
-    if (!file) return this.responseError(res, 'file not found')
-    res.writeHead(
-      200,
-      this.createHead({
-        'content-type':
-          options.filename === 'output.mpd'
-            ? 'application/dash+xml; charset=utf-8'
-            : 'application/octet-stream; charset=utf-8',
-      }),
-    )
-
-    const reader = loader.fileReader(file)
-    let notEnd = true
-    while (notEnd) {
-      const result = await reader.read(65536)
-      res.write(result.data)
-      notEnd = !result.end
-    }
-    reader.destory()
-
-    res.end()
+    res.on('drain', () => {
+      writeRes()
+    })
+    writeRes()
   }
 
   private createHead(headStatus: Record<string, string | number>) {

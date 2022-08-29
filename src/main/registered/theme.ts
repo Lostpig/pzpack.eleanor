@@ -2,7 +2,7 @@ import { nativeTheme } from 'electron'
 import type { Theme } from '../../lib/declares'
 import { config } from '../utils/config'
 import { registerInvoke, getSender, unregisterInvoke } from '../utils/ipc'
-import { AppLogger } from '../utils/logger'
+import { appLogger } from '../utils/logger'
 
 const themeSender = getSender('theme:changed')
 
@@ -10,7 +10,7 @@ const setTheme = (theme: Theme) => {
   nativeTheme.themeSource = theme
   config.set('theme', theme)
   themeSender.send(theme)
-  AppLogger.info(`native theme set to "${theme}"`)
+  appLogger.info(`native theme set to "${theme}"`)
 }
 const getTheme = () => {
   return nativeTheme.themeSource ?? 'system'

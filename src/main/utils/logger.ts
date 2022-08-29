@@ -1,13 +1,14 @@
 import * as path from 'path'
-import { PZLogger, LogLevel, PZDefaultLogger } from 'pzpack'
+import { PZLogger, LogLevel, ctxCtrl } from 'pzpack'
 import { ROOT } from './common'
 
 const appLogPath = path.join(ROOT, 'data', 'log', 'app.log')
 const pzpackLogPath = path.join(ROOT, 'data', 'log', 'pzpk.log')
 
-const logger = new PZLogger('Main')
-logger.enableFileLog(appLogPath)
+const logLevel = ENV_DEV ? LogLevel.DEBUG : LogLevel.WARNING
 
-PZDefaultLogger.enableFileLog(pzpackLogPath)
-export const AppLogger = logger
-export { PZDefaultLogger, LogLevel }
+const appLogger = new PZLogger({ level: logLevel, logFile: ENV_DEV ? undefined : appLogPath })
+const pzpkLogger = new PZLogger({ level: logLevel, logFile: ENV_DEV ? undefined : pzpackLogPath })
+ctxCtrl.bindingLogger(pzpkLogger)
+
+export { appLogger }

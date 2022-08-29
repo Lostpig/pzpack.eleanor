@@ -1,9 +1,9 @@
-import type { PZFilePacked, PZFolder } from 'pzpack'
-import { parseStringPromise } from 'xml2js'
-import { default as parseXsdDuration } from 'parse-xsd-duration'
-import { formatTime, createUrl, createFileUrl, lazyValue } from '../lib/utils'
+import { type PZFilePacked, PZExceptions } from 'pzpack'
+import { formatTime, formatFileSize, createFileUrl, lazyValue } from '../lib/utils'
+import type { TFunction } from 'react-i18next'
+import { errorCodes } from 'lib/exceptions'
 
-export { formatTime, createUrl, createFileUrl, lazyValue }
+export { formatTime, formatFileSize, createFileUrl, lazyValue }
 
 export const mergeCls = (...cls: (string | undefined | boolean)[]) => {
   return cls.filter((c) => typeof c === 'string').join(' ')
@@ -22,30 +22,18 @@ export const formatSize = (size: number, fixed: number = 1) => {
 }
 
 export const isImageFile = (file: PZFilePacked) => {
-  return ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp'].includes(file.ext)
+  return ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp'].includes(file.ext.toLowerCase())
+}
+export const isVideoFile = (file: PZFilePacked) => {
+  return ['.mp4', '.mkv', '.avi', '.wmv', '.rmvb', '.mts'].includes(file.ext.toLowerCase())
 }
 
 export const FirstLetterUpper = (str: string) => {
   return str[0].toUpperCase() + str.slice(1)
 }
 
-export const parseVideoTime = async (port: number, hash: string, videoFolder: PZFolder) => {
-  const url = createFileUrl(port, hash, videoFolder.id, 'output.mpd')
-  const resp = await fetch(url)
-  const xmlText = await resp.text()
-  const xmlObj = await parseStringPromise(xmlText)
-
-  const duration = xmlObj?.MPD?.$?.mediaPresentationDuration as string
-  if (!duration) return 0
-
-  const time = parseXsdDuration(duration)
-  return time
-}
-
 export const defFilters = {
-  PZFiles: { name: 'PZPack', extensions: ['pzpk', 'pzmv'] },
   PZPack: { name: 'PZPack', extensions: ['pzpk'] },
-  PZVideo: { name: 'PZVideo', extensions: ['pzmv'] },
   PZPwBook: { name: 'PZPasswordBook', extensions: ['pzpwb'] },
 }
 
@@ -58,4 +46,21 @@ export const randomPassword = () => {
     p.push(chars[x])
   }
   return p.join('')
+}
+
+export const errorMessage = (err: unknown, t: TFunction<"translation", undefined>) => {
+  if (err instanceof Error) {
+    if (PZExceptions.isPZError(err)) {
+      return t(err.errorCode, err.params)
+    } else {
+      return t(errorCodes.Other, { message: err.message ?? '' })
+    }
+  } else {
+    const e = err as any
+    if (e?.errorCode) {
+      return t(e.errorCode, e?.params)
+    }
+  }
+
+  return t(errorCodes.Unknown, { message: '' })
 }

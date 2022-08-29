@@ -2,8 +2,8 @@ import React from 'react'
 import { mergeCls } from '../../utils'
 
 export type PZSelectProps = {
-  value?: string
-  items: string[] | { name: string; value: string }[]
+  value?: string | number
+  items: string[] | { name: string; value: string | number }[]
   onChange?: (value: string) => void
   className?: string
 }

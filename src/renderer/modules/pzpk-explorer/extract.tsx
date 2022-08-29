@@ -1,47 +1,50 @@
-import React, { useState, useContext, useEffect, useCallback } from 'react'
+import React, { useState, useContext, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ExtractProgress } from 'pzpack'
+import type { ExtractProgress, PZTask } from 'pzpack'
 
-import { formatTime } from '../../utils'
+import { formatTime, formatFileSize, errorMessage } from '../../utils'
 import { ModalContext, DialogBase, info } from '../common'
 import { PZButton, PZProgress } from '../shared'
-import  { type IPCTask } from '../../service/pzpack'
 import { openModal, closeModal } from '../../service/modal'
 
 type ExtractDialogProps = {
   start: number
-  task: IPCTask<ExtractProgress>
+  task: PZTask.AsyncTask<ExtractProgress>
 }
 const ExtractDialog: React.FC<ExtractDialogProps> = ({ start, task }) => {
   const [t] = useTranslation()
   const [usedTime, setUsedTime] = useState(formatTime(0))
   const { id } = useContext(ModalContext)
   const [progress, setProgress] = useState<ExtractProgress>()
+  const taskObs = useMemo(() => task.observable(), [task])
+
   const completeHandle = useCallback(
     (taskState: { canceled: boolean; error?: Error }) => {
       closeModal(id)
 
       if (taskState.error) {
-        info(taskState.error.message || t('unknown error'), t('error'), 'error')
+        info(errorMessage(taskState.error, t), t('error'), 'error')
       }
       if (taskState.canceled) {
         info(t('extract canceled'))
       } else {
         const time = (Date.now() - start) / 1000
-        const message = t('extract complete message ##', { time: formatTime(time) })
+        const bytes = formatFileSize(taskObs.current.extractSize)
+        const speed = formatFileSize(taskObs.current.extractSize / time)
+
+        const message = t('extract complete message ##', { time: formatTime(time), bytes, speed })
         info(message, t('extract complete'))
       }
     },
-    [info, id],
+    [info, id, taskObs],
   )
   useEffect(() => {
-    const reporter = (p: ExtractProgress) => {
-      setProgress(p)
-      const second = (Date.now() - start) / 1000
-      setUsedTime(formatTime(second))
-    }
-    const subscription = task.observable.subscribe(
-      reporter,
+    const subscription = taskObs.subscribe(
+      (p: ExtractProgress) => {
+        setProgress(p)
+        const second = (Date.now() - start) / 1000
+        setUsedTime(formatTime(second))
+      },
       (err) => {
         completeHandle({ canceled: false, error: err })
       },
@@ -51,7 +54,7 @@ const ExtractDialog: React.FC<ExtractDialogProps> = ({ start, task }) => {
     )
 
     return () => subscription.unsubscribe()
-  }, [task])
+  }, [taskObs])
 
   return (
     <DialogBase>
@@ -88,7 +91,7 @@ const ExtractDialog: React.FC<ExtractDialogProps> = ({ start, task }) => {
     </DialogBase>
   )
 }
-export const openExtractDialog = (task: IPCTask<ExtractProgress>) => {
+export const openExtractDialog = (task: PZTask.AsyncTask<ExtractProgress>) => {
   const start = Date.now()
   return openModal(<ExtractDialog start={start} task={task} />)
 }

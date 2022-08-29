@@ -1,10 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { wait } from 'lib/utils'
-import { RESOURCE, ROOT, isDevMode, isDebug } from '../utils/common'
+import { PZUtils } from 'pzpack'
+import { RESOURCE, ROOT, isDebug } from '../utils/common'
 import { appWindow } from '../utils/window'
 import { getSender } from '../utils/ipc'
-import { AppLogger, PZDefaultLogger, LogLevel } from '../utils/logger'
+import { appLogger } from '../utils/logger'
 
 const jsFile = path.join(RESOURCE, 'build/renderer.js')
 const cssFile = path.join(RESOURCE, 'build/style.css')
@@ -14,7 +14,7 @@ const changeTrigger = (action: () => void) => {
   let triggerCounter = 0
   const excute = async () => {
     triggerCounter++
-    await wait(500)
+    await PZUtils.wait(500)
     triggerCounter--
     if (triggerCounter === 0) action()
   }
@@ -33,28 +33,14 @@ const unwatchBuild = () => {
 }
 
 const register = () => {
-  if (isDevMode) {
-    watchBuild()
-    AppLogger.debug('##### application boot on dev mode #####')
-  }
-  if (isDebug || isDevMode) {
+  if (ENV_DEV) watchBuild()
+  if (isDebug) {
     appWindow.openDevTool()
-  
-    AppLogger.consoleLevel = LogLevel.DEBUG
-    AppLogger.fileLevel = LogLevel.INFO
-  
-    PZDefaultLogger.consoleLevel = LogLevel.DEBUG
-    PZDefaultLogger.fileLevel = LogLevel.WARNING
-  
-    AppLogger.debug('##### application boot on debug mode #####')
-    AppLogger.debug('application __dirname', __dirname)
-    AppLogger.debug('application RESOURCE', RESOURCE)
-    AppLogger.debug('application ROOT', ROOT)
-  } else {
-    AppLogger.consoleLevel = LogLevel.WARNING
-    AppLogger.fileLevel = LogLevel.ERROR
-    PZDefaultLogger.consoleLevel = LogLevel.WARNING
-    PZDefaultLogger.fileLevel = LogLevel.ERROR
+
+    appLogger.debug('##### application boot on debug mode #####')
+    appLogger.debug('application __dirname', __dirname)
+    appLogger.debug('application RESOURCE', RESOURCE)
+    appLogger.debug('application ROOT', ROOT)
   }
 }
 const unregister = () => {

@@ -1,7 +1,6 @@
 import React, { useCallback, useContext, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { PZFolder } from 'pzpack'
-import { MediaPlayer } from 'dashjs'
+import type { PZFilePacked } from 'pzpack'
 
 import { ModalContext, info } from '../common'
 import { PZButton } from '../shared'
@@ -10,27 +9,28 @@ import { createFileUrl } from '../../utils'
 import { closeModal } from '../../service/modal'
 import { externalPlayerExists, openExternalPlayer } from '../../service/config'
 
-export const VideoPlayer: React.FC<{ port: number; hash: string; video: PZFolder }> = ({ port, hash, video }) => {
+export const VideoPlayer: React.FC<{ port: number; hash: string; video: PZFilePacked }> = ({ port, hash, video }) => {
   const [t] = useTranslation()
   const ref = useRef<HTMLVideoElement>(null)
   const { id } = useContext(ModalContext)
+  const url = createFileUrl(port, hash, video)
 
   useEffect(() => {
     if (ref.current) {
-      const url = createFileUrl(port, hash, video.id, 'play.mpd')
-      const player = MediaPlayer().create()
+      const player = ref.current
 
       let errorShowed = false
-      player.on('error', () => {
+      const errHandler = () => {
         if (errorShowed) return
         info(t('not support codec try to use external player'), t('warning'), 'warning')
         player.pause()
         errorShowed = true
-      })
-      player.initialize(ref.current, url, true)
+      }
+      player.addEventListener('error', errHandler)
+      player.play()
 
       return () => {
-        player.destroy()
+        player.removeEventListener('error', errHandler)
       }
     }
     return () => {}
@@ -38,7 +38,6 @@ export const VideoPlayer: React.FC<{ port: number; hash: string; video: PZFolder
   const openExPlayer = useCallback(() => {
     externalPlayerExists().then((exists) => {
       if (exists) {
-        const url = createFileUrl(port, hash, video.id, 'play.mpd')
         openExternalPlayer(url)
         if (ref.current) ref.current.pause()
       } else {
@@ -59,7 +58,9 @@ export const VideoPlayer: React.FC<{ port: number; hash: string; video: PZFolder
       </header>
       <div className="w-full h-full flex flex-col overflow-hidden items-center">
         <div className="flex-1 flex items-center justify-center" style={{ height: 'calc(100% - 10rem)' }}>
-          <video className="max-h-full max-w-full" ref={ref} controls></video>
+          <video className="max-h-full max-w-full" ref={ref} controls>
+            <source src={url} />
+          </video>
         </div>
         <div className="flex h-8 items-center">
           <PZButton type="link" onClick={openExPlayer}>

@@ -8,7 +8,7 @@ const files = [
 
 module.exports = {
   appId: 'pzpack.eleanor',
-  asar: false,
+  asar: true,
   npmRebuild: false,
   copyright: `Copyright ©2022 lostpigz`,
   files,

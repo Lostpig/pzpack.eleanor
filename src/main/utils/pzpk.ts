@@ -1,113 +1,129 @@
+import * as fsp from 'fs/promises'
 import {
-  OpenPzFile,
-  PZBuilder,
-  PZVideo,
-  getPZPackFileMate,
-  PZHelper,
-  deserializeIndex,
   type PZLoader,
   type PZTask,
-  type BuildProgress,
   type ExtractProgress,
+  PZSubscription,
+  deserializePZIndexBuilder,
+  PZHash,
+  createPZLoader,
+  PZUtils,
+  buildPZPackFile,
+  PZExceptions,
 } from 'pzpack'
 import type {
   PZPKOpenResult,
-  PZBuildOptions,
-  PZMVBuildOptions,
-  PZPKIndexResult,
-  PZPKPackResult,
+  PZPKTaskResult,
   PZExtractArgs,
+  PZIndexArgs,
+  PZPKIndexResult,
+  PZBuildArgs,
+  PZOpenArgs,
+  PZPKTaskSuccess,
 } from '../../lib/declares'
+import { createErrorResult, errorCodes, errorHandler } from '../../lib/exceptions'
 import type { PasswordBook } from './pwbook'
-import { config } from './config'
 import { getSender } from './ipc'
-import { AppLogger } from './logger'
+import { appLogger } from './logger'
 import { instance as pzServer } from './pzpk.server'
 
 const serverPort = 42506
-
-type UsableTask =
-  | PZTask.AsyncTask<BuildProgress>
-  | PZTask.AsyncTask<PZVideo.PZMVProgress>
-  | PZTask.AsyncTask<ExtractProgress>
+type PZLoaderContext = {
+  readonly hash: string
+  readonly path: string
+  readonly instance: PZLoader
+}
 interface PZContext {
-  loader?: {
-    hash: string
-    instance: PZLoader
-  }
-  task?: {
-    hash: string
-    instance: UsableTask
-  }
+  loader?: PZLoaderContext
 }
 const runningContext: PZContext = {}
 const closeLoader = () => {
   if (runningContext.loader) {
     runningContext.loader.instance.close()
     runningContext.loader = undefined
+    pzServer.unbind()
   }
 }
-const bindLoader = (hash: string, loader: PZLoader) => {
+const bindLoader = async (loader: PZLoaderContext) => {
   closeLoader()
 
-  pzServer.binding(hash, loader)
-  runningContext.loader = { hash, instance: loader }
+  pzServer.binding(loader.hash, loader.instance)
+  await pzServer.start(serverPort)
+
+  runningContext.loader = loader
 }
 
-const closeTask = () => {
-  if (runningContext.task) {
-    runningContext.task.instance.cancel()
-    runningContext.task = undefined
+const getPZFilePwHash = async (source: fsp.FileHandle) => {
+  const buffer = Buffer.alloc(32)
+  await source.read(buffer, 0, 32, 36)
+  return PZUtils.bytesToHex(buffer)
+}
+const createPZLoaderContext = async (
+  source: fsp.FileHandle,
+  file: string,
+  password: string | Buffer,
+): Promise<PZLoaderContext> => {
+  const hash = PZHash.sha256Hex(file)
+  const loader = await createPZLoader(source, password)
+  return {
+    hash,
+    instance: loader,
+    path: file,
   }
 }
-const bindTask = (hash: string, task: UsableTask) => {
-  closeTask()
-  runningContext.task = { hash, instance: task }
-}
 
-export const openPZloader = async (file: string, password: string | Buffer): Promise<PZPKOpenResult> => {
-  let loader: PZLoader | undefined
-
+export const openPZloader = async (args: PZOpenArgs): Promise<PZPKOpenResult> => {
   try {
-    if (file === runningContext.loader?.instance.filename) return { success: false, message: 'already opened file' }
+    if (args.path === runningContext.loader?.path) {
+      return createErrorResult(errorCodes.PZPKFileAlreadyOpened)
+    }
+    const source = await fsp.open(args.path, 'r+')
+    const loader = await createPZLoaderContext(source, args.path, args.password)
 
-    loader = OpenPzFile(file, password)
-    const hashData = Buffer.concat([loader.loadIndexBuffer(), Buffer.from(file, 'utf-8')])
-    const hash = PZHelper.sha256Hex(hashData)
-
-    bindLoader(hash, loader)
-    await pzServer.start(serverPort)
-
+    bindLoader(loader)
     return {
       success: true,
-      hash,
+      hash: loader.hash,
       port: serverPort,
       loaderStatus: {
-        filename: loader.filename,
-        version: loader.version,
-        description: loader.getDescription(),
-        type: loader.type,
-        size: loader.size,
+        filename: args.path,
+        version: loader.instance.version,
+        size: loader.instance.size,
       },
     }
   } catch (err) {
-    AppLogger.errorStack(err)
-    if (loader) {
-      loader.close()
-    }
-
-    return { success: false, message: (err as Error).message }
+    closeLoader()
+    return errorHandler(err, appLogger)
   }
 }
-export const tryOpenPZloader = (file: string, book: PasswordBook): Promise<PZPKOpenResult> | PZPKOpenResult => {
-  if (file === runningContext.loader?.instance.filename) return { success: false, message: 'already opened file' }
+export const tryOpenPZloader = async (file: string, book: PasswordBook): Promise<PZPKOpenResult> => {
+  try {
+    if (file === runningContext.loader?.path) {
+      return createErrorResult(errorCodes.PZPKFileAlreadyOpened)
+    }
+    const source = await fsp.open(file, 'r+')
+    const pwHash = await getPZFilePwHash(source)
 
-  const matedata = getPZPackFileMate(file)
-  if (book.has(matedata.pwHash)) {
-    const pwr = book.get(matedata.pwHash)!
-    return openPZloader(file, pwr.key)
-  } else {
-    return { success: false, message: 'no matching password' }
+    const record = book.get(pwHash)
+    if (record) {
+      const loader = await createPZLoaderContext(source, file, record.key)
+      bindLoader(loader)
+      return {
+        success: true,
+        hash: loader.hash,
+        port: serverPort,
+        loaderStatus: {
+          filename: file,
+          version: loader.instance.version,
+          size: loader.instance.size,
+        },
+      }
+    } else {
+      return createErrorResult(errorCodes.Other)
+    }
+  } catch (err) {
+    closeLoader()
+    return errorHandler(err, appLogger)
   }
 }
 export const closePZloader = (hash: string) => {
@@ -115,121 +131,98 @@ export const closePZloader = (hash: string) => {
     closeLoader()
   }
 }
-export const loadIndexData = (hash: string): PZPKIndexResult => {
-  const loader = runningContext.loader
-  if (loader?.hash === hash) {
-    const idxBuf = loader.instance.loadIndexBuffer()
-    return { success: true, data: idxBuf }
-  } else {
-    return { success: false, message: 'load index failed' }
-  }
-}
 
-export const startExtract = (args: PZExtractArgs): PZPKPackResult => {
-  const loader = runningContext.loader
-  if (loader?.hash === args.hash) {
-    const taskHash = PZHelper.sha256Hex(JSON.stringify(args))
+let taskIdCounter = 1
+const taskStore = new Map<string, PZTask.AsyncTask<unknown>>()
+const createIPCTask = (task: PZTask.AsyncTask<unknown>, frequency: number = 200): PZPKTaskSuccess => {
+  const obs = PZSubscription.frequencyPipe(task.observable(), frequency)
+  const id = `${Date.now()}-${taskIdCounter++}`
+
+  const sender = getSender('pzpk:task')
+  obs.subscribe(
+    (p) => {
+      sender.send({
+        id,
+        status: 'next',
+        data: p,
+      })
+    },
+    (err) => {
+      const errResult = errorHandler(err, appLogger)
+      sender.send({
+        id,
+        status: 'error',
+        error: errResult.error
+      })
+      taskStore.delete(id)
+    },
+    (r) => {
+      sender.send({
+        id,
+        canceled: task.canceled,
+        status: 'complete',
+        data: r,
+      })
+      taskStore.delete(id)
+    },
+  )
+  taskStore.set(id, task)
+
+  return { success: true, taskId: id, initState: obs.current }
+}
+export const startExtract = (args: PZExtractArgs): PZPKTaskResult => {
+  if (runningContext.loader?.hash === args.hash) {
+    const { instance } = runningContext.loader
+    const { index } = instance
     let task: PZTask.AsyncTask<ExtractProgress>
 
     if (args.type === 'file') {
-      const file = loader.instance.loadIndex().findFile(args.source.folderId, args.source.filename)
+      const file = index.getFile(args.source)
       if (!file) {
-        return { success: false, message: 'extract file not found' }
+        return createErrorResult(PZExceptions.errorCodes.FileNotFound, { path: args.source })
       }
-
-      task = loader.instance.extractFileAsync(file, args.target)
+      task = instance.extractFile(file, args.target)
     } else if (args.type === 'folder') {
-      const folder = loader.instance.loadIndex().getFolder(args.source.folderId)
+      const folder = index.getFolder(args.source)
       if (!folder) {
-        return { success: false, message: 'extract folder not found' }
+        return createErrorResult(PZExceptions.errorCodes.FolderNotFound, { path: args.source })
       }
-
-      task = loader.instance.extractFolderAsync(folder, args.target)
+      task = instance.extractBatch(folder, args.target)
     } else {
-      task = loader.instance.extractAllAsync(args.target)
+      task = instance.extractBatch(index.root, args.target)
     }
 
-    const sender = getSender('pzpk:extract')
-    const completer = getSender('pzpk:extractcomplete')
-    const errorSender = getSender('pzpk:extracterror')
-    task.subscribe(
-      (p) => sender.send({ hash: taskHash, progress: p }),
-      (err) => {
-        errorSender.send({ hash: taskHash, error: err.message })
-      },
-      () => {
-        completer.send({ hash: taskHash, canceled: task.canceled })
-      },
-    )
-    bindTask(taskHash, task)
-
-    return { success: true, hash: taskHash }
+    return createIPCTask(task)
   } else {
-    return { success: false, message: 'load index failed' }
+    return createErrorResult(errorCodes.PZPKHashCheckInvalid)
   }
 }
-export const startPZBuild = (indexData: string, options: PZBuildOptions): PZPKPackResult => {
-  const indexBuilder = deserializeIndex(indexData)
-  const builder = new PZBuilder({
-    type: 'PZPACK',
-    indexBuilder,
-    password: options.password,
-  })
-  builder.setDescription(options.desc)
-
-  const hash = PZHelper.sha256Hex(indexData)
-  const task = builder.buildTo(options.target)
-
-  const sender = getSender('pzpk:building')
-  const completer = getSender('pzpk:buildcomplete')
-  const errorSender = getSender('pzpk:builderror')
-  task.subscribe(
-    (p) => sender.send({ hash, progress: p }),
-    (err) => {
-      errorSender.send({ hash, error: err.message })
-    },
-    () => {
-      completer.send({ hash, canceled: task.canceled })
-    },
-  )
-
-  bindTask(hash, task)
-
-  return { success: true, hash }
+export const startBuild = (args: PZBuildArgs): PZPKTaskResult => {
+  const indexBuilder = deserializePZIndexBuilder(args.indexData)
+  const task = buildPZPackFile(indexBuilder, args.options)
+  return  createIPCTask(task)
 }
-export const startPZMVBuild = (target: string, indexData: string, options: PZMVBuildOptions): PZPKPackResult => {
-  const ffmpegDir = config.get('ffmpeg')
-  const tempDir = config.get('tempDir')
-
-  if (!ffmpegDir) throw new Error('ffmpeg not setted')
-  if (!tempDir) throw new Error('temp directory not setted')
-
-  const indexBuilder = PZVideo.deserializeMvIndex(indexData)
-  const builder = new PZVideo.PZMVBuilder({ indexBuilder, ffmpegDir, tempDir, ...options })
-
-  const hash = PZHelper.sha256Hex(indexData)
-  const task = builder.buildTo(target)
-
-  const sender = getSender('pzpk:mvbuilding')
-  const completer = getSender('pzpk:buildcomplete')
-  const errorSender = getSender('pzpk:builderror')
-  task.subscribe(
-    (p) => sender.send({ hash, progress: p }),
-    (err) => {
-      errorSender.send({ hash, error: err.message })
-    },
-    () => {
-      completer.send({ hash, canceled: task.canceled })
-    },
-  )
-
-  bindTask(hash, task)
-
-  return { success: true, hash }
+export const cancelTask = (id: string) => {
+  taskStore.get(id)?.cancel()
 }
 
-export const cancelTask = (hash: string) => {
-  if (runningContext.task?.hash === hash) {
-    closeTask()
+export const getIndex = (args: PZIndexArgs): PZPKIndexResult => {
+  if (runningContext.loader?.hash !== args.hash) {
+    return createErrorResult(errorCodes.PZPKHashCheckInvalid)
+  }
+
+  const { index } = runningContext.loader.instance
+  const folder = index.getFolder(args.path)
+  if (!folder) {
+    return createErrorResult(PZExceptions.errorCodes.FolderNotFound, { path: args.path })
+  }
+
+  const children = index.getChildren(folder)
+  return {
+    success: true,
+    data: {
+      files: children.files,
+      folders: children.folders,
+    },
   }
 }

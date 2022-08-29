@@ -1,7 +1,6 @@
 import { PZLogger, LogLevel } from 'pzpack'
 
-export const RendererLogger = new PZLogger('Renderer')
-RendererLogger.consoleLevel = LogLevel.DEBUG
-RendererLogger.fileLevel = LogLevel.WARNING
+const logLevel = ENV_DEV ? LogLevel.DEBUG : LogLevel.WARNING
+const logger = new PZLogger({ id: 'app', level: logLevel, logFile: undefined })
 
-export { LogLevel }
+export { logger }

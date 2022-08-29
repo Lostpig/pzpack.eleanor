@@ -1,14 +1,14 @@
 import * as path from 'path'
 import React, { memo, useState, useContext, createContext, useMemo, useEffect, useReducer, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PZHelper, type PZFolder, type PZFileBuilding, type PZIndexBuilder } from 'pzpack'
+import { type PZFolder, type PZFileBuilding, type PZIndexBuilder } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
 import { info, openSetNameDialog } from '../common'
 import { FiletypeIcon, RightIcon } from '../icons'
 import { PZButton } from '../shared'
-import { RendererLogger } from 'renderer/service/logger'
+import { errorMessage } from '../../utils'
 import { openBuildDialog } from './dialogs'
-import { openDir, selectFiles } from '../../service/io'
+import { selectFiles, scanDir } from '../../service/io'
 
 type ContentContextType = {
   navigate: (folder: PZFolder) => void
@@ -41,10 +41,8 @@ const ensureFolderRec = (builder: PZIndexBuilder, parent: PZFolder, relativePath
   }
   return p
 }
-const addDir = async (builder: PZIndexBuilder, parent: PZFolder, dir: string) => {
-  const files = await PZHelper.scanDirectory(dir)
+const addDir = async (builder: PZIndexBuilder, parent: PZFolder, dir: string, files: string[]) => {
   const dirName = path.basename(dir)
-
   const folder = builder.addFolder(dirName, parent.id)
   for (const file of files) {
     const relativePath = path.relative(dir, file)
@@ -65,7 +63,7 @@ const Breadcrumbs: React.FC<{ current: PZFolder; update: number }> = memo((props
       {list.map((f) => {
         const name = f.id === builder.rootId ? 'root' : f.name
         return (
-          <div key={f.id}>
+          <div className="breadcrumbs-item" key={f.id}>
             <PZButton className="flex items-center" type="link" onClick={() => navigate(f)} disabled={f === current}>
               <span className="mr-4">{name}</span>
               {f === current ? null : <RightIcon size={16} />}
@@ -172,8 +170,8 @@ const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) =>
     })
   }, [builder, current])
   const addFolder = useCallback(() => {
-    openDir().then((dir) => {
-      if (dir) addDir(builder, current, dir)
+    scanDir().then((res) => {
+      if (res.files.length > 0) addDir(builder, current, res.folder, res.files)
     })
   }, [builder, current])
   const addFiles = useCallback(() => {
@@ -194,11 +192,10 @@ const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) =>
   }, [builder, current])
   const toBuild = useCallback(() => {
     try {
-      builder.checkEmpty()
+      builder.checkIsEmpty()
       openBuildDialog(builder)
     } catch (err) {
-      const msg = (err as Error)?.message ?? 'unknown error'
-      info(msg, t('error'), 'error')
+      info(errorMessage(err, t), t('error'), 'error')
     }
   }, [builder])
 
@@ -230,15 +227,14 @@ const BuilderOperateBar: React.FC<{ current: PZFolder }> = memo(({ current }) =>
 const BuilderContent = () => {
   const { builder } = useContext(BuilderContext)
   const [updateFlag, dispatchFlag] = useReducer((prev) => prev + 1, 0)
-  const [currentFolder, setCurrentFolder] = useState(builder.getRootFolder()!)
+  const [currentFolder, setCurrentFolder] = useState(builder.getRoot())
 
   const context: ContentContextType = useMemo(
     () => ({ navigate: (folder) => setCurrentFolder(folder) }),
     [setCurrentFolder],
   )
   useEffect(() => {
-    const subscription = builder.subscriber.subscribe(() => {
-      RendererLogger.debug('PZPack builder update')
+    const subscription = builder.changeObservble().subscribe(() => {
       dispatchFlag()
     })
     return () => subscription.unsubscribe()

@@ -1,13 +1,16 @@
 import * as fs from 'fs'
 import * as fsp from 'fs/promises'
 import * as path from 'path'
+import { PZExceptions } from 'pzpack'
+
+const { PZError, errorCodes } = PZExceptions
 
 export const checkDirExists = (dir: string) => {
   const dirExists = fs.existsSync(dir)
   if (dirExists) {
     const stats = fs.statSync(dir)
     if (!stats.isDirectory()) {
-      throw new Error(`Path ${dir} is already exists and it's not a directory`)
+      throw new PZError(errorCodes.PathAlreadyExists, { path: dir })
     }
   }
   return dirExists
@@ -17,7 +20,7 @@ export const checkFileExists = (file: string) => {
   if (fileExists) {
     const stats = fs.statSync(file)
     if (!stats.isFile()) {
-      throw new Error(`Path ${file} is already exists and it's not a file`)
+      throw new PZError(errorCodes.PathAlreadyExists, { path: file })
     }
   }
   return fileExists
@@ -37,7 +40,7 @@ export const ensureDirAsync = async (dir: string) => {
     const stats = await fsp.stat(dir)
     if (!stats.isDirectory()) {
       notDirError = true
-      throw new Error(`Path ${dir} is already exists and it's not a directory`)
+      throw new PZError(errorCodes.PathAlreadyExists, { path: dir })
     }
   } catch (e) {
     if (notDirError) throw e
@@ -78,4 +81,26 @@ export const writeJsonAsync = (file: string, data: unknown) => {
       else res()
     })
   })
+}
+
+export const scanAllFiles = (dir: string) => {
+  const dirs = [dir]
+  const files: string[] = []
+
+  while (dirs.length > 0) {
+    const d = dirs.pop()!
+    const list = fs.readdirSync(d)
+    for (const f of list) {
+      const fullname = path.join(d, f)
+      const stats = fs.statSync(fullname)
+      if (stats.isDirectory()) {
+        dirs.push(fullname)
+      }
+      if (stats.isFile()) {
+        files.push(fullname)
+      }
+    }
+  }
+
+  return files
 }

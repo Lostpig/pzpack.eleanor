@@ -1,10 +1,10 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import { AppLogger } from './logger'
+import { appLogger } from './logger'
 import { ROOT } from './common'
 import type { ConfigSet } from '../../lib/declares'
-import { ensureFileDirAsync, readJson, writeJsonAsync, ensureFileDir, writeJson } from '../../lib/io'
-import { wait } from '../../lib/utils'
+import { ensureFileDirAsync, readJson, writeJsonAsync, ensureFileDir, writeJson } from './io'
+import { PZUtils } from 'pzpack'
 
 const configPath = path.join(ROOT, 'data', 'config.json')
 class ConfigManager {
@@ -14,14 +14,14 @@ class ConfigManager {
   private loadFile() {
     const exists = fs.existsSync(configPath)
     if (!exists) {
-      AppLogger.info('config file not exists')
+      appLogger.info('config file not exists')
       return
     }
 
     try {
       this.data = readJson(configPath)
     } catch (e) {
-      AppLogger.errorStack(e)
+      appLogger.errorStack(e)
       this.data = {}
     } finally {
       this.inited = true
@@ -35,7 +35,7 @@ class ConfigManager {
     if (this.writingFlag) return
 
     this.writingFlag = true
-    await wait(60000)
+    await PZUtils.wait(60000)
     if (this.writingFlag) {
       await ensureFileDirAsync(configPath)
       await writeJsonAsync(configPath, this.data)

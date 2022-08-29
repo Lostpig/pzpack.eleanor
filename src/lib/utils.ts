@@ -1,19 +1,4 @@
-export const wait = (ms: number) => {
-  if (ms <= 0) {
-    return Promise.resolve()
-  }
-
-  return new Promise<void>((res) => {
-    setTimeout(res, ms)
-  })
-}
-export const nextTick = () => {
-  return new Promise<void>((res) => {
-    process.nextTick(() => {
-      res()
-    })
-  })
-}
+import type { PZFilePacked } from "pzpack"
 
 export const formatTime = (timeSeconds: number) => {
   const hours = Math.trunc(timeSeconds / 3600)
@@ -26,13 +11,20 @@ export const formatTime = (timeSeconds: number) => {
 
   return `${f2(hours)}:${f2(minutes)}:${f2(seconds)}`
 }
+export const formatFileSize = (size: number) => {
+  const suffix = [' KB', ' MB', ' GB', ' TB', ' PB']
 
-export const createUrl = (port: number, hash: string, pathname: string) => {
-  const p = encodeURI(pathname)
-  return `http://localhost:${port}/${hash}/${p}`
+  let count = 0
+  let n = size / 1024
+  while (n > 1024 && count < suffix.length) {
+    n /= 1024
+    count++
+  }
+  return n.toFixed(1) + suffix[count]
 }
-export const createFileUrl = (port: number, hash: string, pid: number, filename: string) => {
-  return createUrl(port, hash, `${pid}/${filename}`)
+
+export const createFileUrl = (port: number, hash: string, file: PZFilePacked) => {
+  return `http://localhost:${port}/file/${hash}/${file.fid}`
 }
 
 export const throttling = <F extends (...args: any[]) => any>(func: F, frequency: number = 500): F => {

@@ -1,129 +1,87 @@
 import {
   PZIndexBuilder,
-  PZVideo,
   PZSubscription,
-  PZIndexReader,
-  serializeIndex,
+  serializePZIndexBuilder,
   type BuildProgress,
-  type PZFilePacked,
   type ExtractProgress,
+  type PZFilePacked,
   type PZFolder,
+  PZTask,
+  PZExceptions,
 } from 'pzpack'
-import type { PZPKBuildArgs, PZPKMvBuildArgs, PZLoaderStatus, PZExtractArgs, PZPKFailedResult } from '../../lib/declares'
+import type { PZBuildArgs, PZLoaderStatus, PZExtractArgs, PZPKTaskSuccess, PZPKBaseResult, PZPKSuccessResult } from '../../lib/declares'
+import { errorCodes, createErrorResult } from '../../lib/exceptions'
 import { invokeIpc, subscribeChannel } from './ipc'
-import { getConfig } from './config'
 
 interface PZInstanceBase {
-  type: 'builder' | 'mvbuilder' | 'loader' | 'mvloader'
-  binding: PZIndexBuilder | PZIndexReader | PZVideo.PZMVIndexBuilder
+  type: 'builder' | 'explorer'
 }
 interface PZBuilderInstance extends PZInstanceBase {
   type: 'builder'
   binding: PZIndexBuilder
 }
-interface PZMVBuilderInstance extends PZInstanceBase {
-  type: 'mvbuilder'
-  binding: PZVideo.PZMVIndexBuilder
-}
-interface PZLoaderInstance extends PZInstanceBase {
-  type: 'loader' | 'mvloader'
+interface PZExplorerInstance extends PZInstanceBase {
+  type: 'explorer'
   hash: string
-  binding: PZIndexReader
   port: number
   status: PZLoaderStatus
 }
-export type PZInstance = PZBuilderInstance | PZMVBuilderInstance | PZLoaderInstance
+export type PZInstance = PZBuilderInstance | PZExplorerInstance
 
 const PZInstanceSubject = new PZSubscription.PZBehaviorSubject<PZInstance | undefined>(undefined)
-export const PZInstanceObservable = PZInstanceSubject.asObservable()
+export const PZInstanceObservable = PZInstanceSubject.toObservable()
 
-export const bindingPZloader = async (hash: string, port: number, status: PZLoaderStatus) => {
-  const idxResult = await invokeIpc('pzpk:getIndex', hash)
-  if (!idxResult.success) return idxResult
-  const indices = new PZIndexReader()
-  const idxBuffer = Buffer.from(idxResult.data, idxResult.data.byteOffset, idxResult.data.byteLength)
-  indices.decode(idxBuffer, status.version)
-
-  const instType = status.type === 'PZPACK' ? 'loader' : 'mvloader'
-  PZInstanceSubject.next({
-    type: instType,
-    binding: indices,
+export const bindingExplorer = async (hash: string, port: number, status: PZLoaderStatus) => {
+  const explorerInst: PZExplorerInstance = {
+    type: 'explorer',
     hash,
-    port: port,
-    status: status,
-  })
-
-  return { success: true }
+    port,
+    status,
+  }
+  PZInstanceSubject.next(explorerInst)
+  return { success: true } as PZPKSuccessResult
 }
 export const openPZloader = async (
   filename: string,
   password: string,
-): Promise<{ success: boolean; message?: string }> => {
-  const result = await invokeIpc('pzpk:open', { filename, password })
+): Promise<PZPKBaseResult> => {
+  const result = await invokeIpc('pzpk:open', { path: filename, password })
   if (!result.success) return result
-  return await bindingPZloader(result.hash, result.port, result.loaderStatus)
+  return await bindingExplorer(result.hash, result.port, result.loaderStatus)
 }
 export const closePZInstance = async () => {
   const current = PZInstanceSubject.current
   if (current) {
-    if (current.type === 'loader' || current.type === 'mvloader') {
+    if (current.type === 'explorer') {
       await invokeIpc('pzpk:close', current.hash)
     }
     PZInstanceSubject.next(undefined)
   }
 }
 
-export type IPCTask<T> = {
-  observable: PZSubscription.PZObservable<T>
-  readonly canceled: boolean
-  cancel: () => Promise<void>
-}
-export type IPCTaskCreateSuccessResult<T> = {
-  success: true
-  task: IPCTask<T>
-}
+const createIPCTask = (res: PZPKTaskSuccess): PZTask.AsyncTask<unknown> => {
+  const [task, cancelToken] = PZTask.taskManager.create<unknown>(res.initState)
+  const subscription = subscribeChannel('pzpk:task', (data) => {
+    if (data.id !== res.taskId) return
 
-const createBuildingTask = (hash: string): IPCTaskCreateSuccessResult<BuildProgress> => {
-  const subject = new PZSubscription.PZSubject<BuildProgress>()
-  let canceled = false
+    if (data.status === 'next') {
+      PZTask.taskManager.update(task, data.data as Partial<unknown>)
+    } else if (data.status === 'error') {
+      PZTask.taskManager.throwError(
+        task,
+        new PZExceptions.PZError(data.error.errorCode ?? errorCodes.Other, data.error.param, data.error.message),
+      )
+      subscription.unsubscribe()
+    } else {
+      PZTask.taskManager.complete(task)
+      subscription.unsubscribe()
+    }
+  })
+  cancelToken.onChange(() => {
+    invokeIpc('pzpk:canceltask', res.taskId)
+  })
 
-  const subscriptions = [
-    subscribeChannel('pzpk:building', (p) => {
-      if (p.hash === hash) subject.next(p.progress)
-    }),
-    subscribeChannel('pzpk:buildcomplete', (p) => {
-      if (p.hash === hash) {
-        canceled = p.canceled
-        subject.complete()
-      }
-    }),
-    subscribeChannel('pzpk:builderror', (p) => {
-      if (p.hash === hash) {
-        subject.error(new Error(p.error))
-      }
-    }),
-  ]
-  subject.subscribe(
-    undefined,
-    () => {
-      subscriptions.forEach((s) => s.unsubscribe())
-    },
-    () => {
-      subscriptions.forEach((s) => s.unsubscribe())
-    },
-  )
-  const cancel = async () => {
-    await invokeIpc('pzpk:canceltask', hash)
-  }
-
-  const task: IPCTask<BuildProgress> = {
-    observable: subject.asObservable(),
-    cancel,
-    get canceled() {
-      return canceled
-    },
-  }
-  return { success: true, task }
+  return task
 }
 export const openPZBuilder = () => {
   const instance = PZInstanceSubject.current
@@ -136,189 +94,80 @@ export const openPZBuilder = () => {
 export const startPZBuild = async (
   indexBuilder: PZIndexBuilder,
   target: string,
-  description: string,
+  blockSize: number,
   password: string,
 ) => {
-  const args: PZPKBuildArgs = {
-    type: 'PZPACK',
-    options: { target, desc: description, password },
-    indexData: serializeIndex(indexBuilder),
+  const args: PZBuildArgs = {
+    options: { target, password, blockSize },
+    indexData: serializePZIndexBuilder(indexBuilder),
   }
 
-  const result = await invokeIpc('pzpk:pack', args)
+  const result = await invokeIpc('pzpk:build', args)
   if (result.success) {
-    return createBuildingTask(result.hash)
+    return {
+      success: true,
+      task: createIPCTask(result),
+    } as { success: true; task: PZTask.AsyncTask<BuildProgress> }
   } else {
     return result
   }
 }
 
-const createMvBuildingTask = (hash: string): IPCTaskCreateSuccessResult<PZVideo.PZMVProgress> => {
-  const subject = new PZSubscription.PZSubject<PZVideo.PZMVProgress>()
-  let canceled = false
-
-  const subscriptions = [
-    subscribeChannel('pzpk:mvbuilding', (p) => {
-      if (p.hash === hash) subject.next(p.progress)
-    }),
-    subscribeChannel('pzpk:buildcomplete', (p) => {
-      if (p.hash === hash) {
-        canceled = p.canceled
-        subject.complete()
-      }
-    }),
-    subscribeChannel('pzpk:builderror', (p) => {
-      if (p.hash === hash) {
-        subject.error(new Error(p.error))
-      }
-    }),
-  ]
-  subject.subscribe(
-    undefined,
-    () => {
-      subscriptions.forEach((s) => s.unsubscribe())
-    },
-    () => {
-      subscriptions.forEach((s) => s.unsubscribe())
-    },
-  )
-
-  const cancel = async () => {
-    await invokeIpc('pzpk:canceltask', hash)
-  }
-  const task: IPCTask<PZVideo.PZMVProgress> = {
-    observable: subject.asObservable(),
-    cancel,
-    get canceled() {
-      return canceled
-    },
-  }
-  return { success: true, task }
-}
-export const openPZMVBuilder = () => {
-  const instance = PZInstanceSubject.current
-  if (instance && instance.type === 'mvbuilder') return
-  if (instance) closePZInstance()
-
-  const mvIndexBuilder = new PZVideo.PZMVIndexBuilder()
-  PZInstanceSubject.next({ type: 'mvbuilder', binding: mvIndexBuilder })
-}
-export const startPZMVBuild = async (
-  target: string,
-  options: Omit<PZVideo.PZMVBuilderOptions, 'ffmpegDir' | 'tempDir'>,
-) => {
-  const ffmpegDir = await getConfig('ffmpeg')
-  const tempDir = await getConfig('tempDir')
-
-  if (!ffmpegDir) throw new Error('ffmpeg not setted')
-  if (!tempDir) throw new Error('temp directory not setted')
-
-  const args: PZPKMvBuildArgs = {
-    type: 'PZVIDEO',
-    target,
-    options: {
-      password: options.password,
-      description: options.description,
-      videoCodec: options.videoCodec,
-      audioCodec: options.audioCodec,
-    },
-    indexData: PZVideo.serializeMvIndex(options.indexBuilder),
-  }
-
-  const result = await invokeIpc('pzpk:pack', args)
-  if (result.success) {
-    return createMvBuildingTask(result.hash)
-  } else {
-    return result
-  }
-}
-
-const createExtractTask = (hash: string): IPCTaskCreateSuccessResult<ExtractProgress> => {
-  const subject = new PZSubscription.PZSubject<ExtractProgress>()
-  let canceled = false
-
-  const subscriptions = [
-    subscribeChannel('pzpk:extract', (p) => {
-      if (p.hash === hash) subject.next(p.progress)
-    }),
-    subscribeChannel('pzpk:extractcomplete', (p) => {
-      if (p.hash === hash) {
-        canceled = p.canceled
-        subject.complete()
-      }
-    }),
-    subscribeChannel('pzpk:extracterror', (p) => {
-      if (p.hash === hash) {
-        subject.error(new Error(p.error))
-      }
-    }),
-  ]
-  subject.subscribe(
-    undefined,
-    () => {
-      subscriptions.forEach((s) => s.unsubscribe())
-    },
-    () => {
-      subscriptions.forEach((s) => s.unsubscribe())
-    },
-  )
-
-  const cancel = async () => {
-    await invokeIpc('pzpk:canceltask', hash)
-  }
-  const task: IPCTask<ExtractProgress> = {
-    observable: subject.asObservable(),
-    cancel,
-    get canceled() {
-      return canceled
-    },
-  }
-  return { success: true, task }
-}
 const startExtract = async (args: PZExtractArgs) => {
   const result = await invokeIpc('pzpk:extract', args)
   if (result.success) {
-    return createExtractTask(result.hash)
+    return {
+      success: true,
+      task: createIPCTask(result),
+    } as { success: true; task: PZTask.AsyncTask<ExtractProgress> }
   } else {
     return result
   }
 }
 export const extractFile = async (file: PZFilePacked, target: string) => {
-  if (!PZInstanceSubject.current || PZInstanceSubject.current.type !== 'loader') {
-    return { success: false, message: 'PZLoader not opened' } as PZPKFailedResult
+  if (!PZInstanceSubject.current || PZInstanceSubject.current.type !== 'explorer') {
+    return createErrorResult(errorCodes.PZFileNotOpened)
   }
   const args: PZExtractArgs = {
     type: 'file',
     hash: PZInstanceSubject.current.hash,
-    source: { filename: file.name, folderId: file.pid },
+    source: file.fullname,
     target,
   }
 
   return await startExtract(args)
 }
-export const extractFolder = async  (folder: PZFolder, target: string) => {
-  if (!PZInstanceSubject.current || PZInstanceSubject.current.type !== 'loader') {
-    return { success: false, message: 'PZLoader not opened' } as PZPKFailedResult
+export const extractFolder = async (folder: PZFolder, target: string) => {
+  if (!PZInstanceSubject.current || PZInstanceSubject.current.type !== 'explorer') {
+    return createErrorResult(errorCodes.PZFileNotOpened)
   }
   const args: PZExtractArgs = {
     type: 'folder',
     hash: PZInstanceSubject.current.hash,
-    source: { filename: '', folderId: folder.id },
+    source: folder.fullname,
     target,
   }
 
   return await startExtract(args)
 }
-export const extractAll = async  (target: string) => {
-  if (!PZInstanceSubject.current || PZInstanceSubject.current.type !== 'loader') {
-    return { success: false, message: 'PZLoader not opened' } as PZPKFailedResult
+export const extractAll = async (target: string) => {
+  if (!PZInstanceSubject.current || PZInstanceSubject.current.type !== 'explorer') {
+    return createErrorResult(errorCodes.PZFileNotOpened)
   }
   const args: PZExtractArgs = {
     type: 'all',
     hash: PZInstanceSubject.current.hash,
-    source: { filename: '', folderId: 0 },
+    source: '/',
     target,
   }
 
   return await startExtract(args)
+}
+
+export const loadIndex = async (path: string) => {
+  if (!PZInstanceSubject.current || PZInstanceSubject.current.type !== 'explorer') {
+    return createErrorResult(errorCodes.PZFileNotOpened)
+  }
+
+  return invokeIpc('pzpk:getIndex', { hash: PZInstanceSubject.current.hash, path })
 }

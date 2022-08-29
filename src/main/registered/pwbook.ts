@@ -1,4 +1,5 @@
-import { AppLogger } from '../utils/logger'
+import { appLogger } from '../utils/logger'
+import { createErrorResult, errorCodes, errorHandler } from '../../lib/exceptions'
 import { registerInvoke, getSender, unregisterInvoke } from '../utils/ipc'
 import { type PasswordBook, openPasswordBook, createPasswordBook } from '../utils/pwbook'
 import { tryOpenPZloader } from '../utils/pzpk'
@@ -9,30 +10,26 @@ const updateSender = getSender('pwbook:update')
 const register = () => {
   registerInvoke('pwbook:add', (password: string) => {
     if (!current) {
-      return { success: false, message: 'Password book not opened' }
+      return createErrorResult(errorCodes.PasswordBookNotOpened)
     }
 
     try {
       current.add(password)
       return { success: true }
     } catch (err) {
-      const message = err && (err as any).message ? (err as any).message : 'unknown error'
-      AppLogger.errorStack(err)
-      return { success: false, message }
+      return errorHandler(err, appLogger)
     }
   })
   registerInvoke('pwbook:delete', (hash: string) => {
     if (!current) {
-      return { success: false, message: 'Password book not opened' }
+      return createErrorResult(errorCodes.PasswordBookNotOpened)
     }
 
     try {
-      const deleted = current.delete(hash)
-      return { success: deleted, message: '' }
+      current.delete(hash)
+      return { success: true }
     } catch (err) {
-      const message = err && (err as any).message ? (err as any).message : 'unknown error'
-      AppLogger.errorStack(err)
-      return { success: false, message }
+      return errorHandler(err, appLogger)
     }
   })
   registerInvoke('pwbook:open', async (args) => {
@@ -41,26 +38,24 @@ const register = () => {
       if (args.mode === 'open') current = await openPasswordBook(args.filename, args.masterPw)
       else current = await createPasswordBook(args.filename, args.masterPw)
 
-      current.updater.subscribe((items) => {
+      current.observer().subscribe((items) => {
         updateSender.send({ items })
       })
 
       return { success: true, filename: current.filename, items: current.items() }
     } catch (err) {
-      const message = err && (err as any).message ? (err as any).message : 'unknown error'
-      AppLogger.errorStack(err)
-      return { success: false, message }
+      return errorHandler(err, appLogger)
     }
   })
   registerInvoke('pwbook:current', () => {
     if (!current) {
-      return { success: false, message: 'Password book not opened' }
+      return createErrorResult(errorCodes.PasswordBookNotOpened)
     }
     return { success: true, filename: current.filename, items: current.items() }
   })
   registerInvoke('pwbook:close', async () => {
     if (!current) {
-      return { success: false, message: 'Password book not opened' }
+      return createErrorResult(errorCodes.PasswordBookNotOpened)
     }
 
     await current.close()
@@ -69,7 +64,7 @@ const register = () => {
   })
   registerInvoke('pwbook:tryopen', (filename) => {
     if (!current) {
-      return { success: false, message: 'Password book not opened' }
+      return createErrorResult(errorCodes.PasswordBookNotOpened)
     }
 
     return tryOpenPZloader(filename, current)
@@ -83,6 +78,7 @@ const unregister = () => {
   unregisterInvoke('pwbook:open')
   unregisterInvoke('pwbook:current')
   unregisterInvoke('pwbook:close')
+  unregisterInvoke('pwbook:tryopen')
 }
 
 export { register, unregister }

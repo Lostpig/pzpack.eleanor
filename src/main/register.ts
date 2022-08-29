@@ -6,8 +6,9 @@ import * as infoReg from './registered/info'
 import * as configReg from './registered/config'
 import * as pzpkReg from './registered/pzpk'
 import * as pwbookReg from './registered/pwbook'
+import * as explayerReg from './registered/explayer'
 
-const items = [devReg, dialogReg, shortcutReg, themeReg, infoReg, configReg, pzpkReg, pwbookReg]
+const items = [devReg, dialogReg, shortcutReg, themeReg, infoReg, configReg, pzpkReg, pwbookReg, explayerReg]
 
 export const registerAll = () => {
   items.forEach((n) => n.register())

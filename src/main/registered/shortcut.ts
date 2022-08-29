@@ -1,16 +1,16 @@
 import { globalShortcut } from 'electron'
-import { AppLogger } from '../utils/logger'
+import { appLogger } from '../utils/logger'
 import { config } from '../utils/config'
 import { appWindow } from '../utils/window'
 
 const registerShortcut = (acc: Electron.Accelerator, desc: string, func: () => void) => {
-  AppLogger.info(`Registering shortcut: ${acc} => ${desc}`)
+  appLogger.info(`Registering shortcut: ${acc} => ${desc}`)
   try {
     globalShortcut.register(acc, func)
     return true
   } catch (err) {
-    AppLogger.error(`Failed to register shortcut[${acc}]`)
-    AppLogger.errorStack(err)
+    appLogger.error(`Failed to register shortcut[${acc}]`)
+    appLogger.errorStack(err)
     return false
   }
 }

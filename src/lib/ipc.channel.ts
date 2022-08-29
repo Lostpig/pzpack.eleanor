@@ -1,4 +1,4 @@
-import type { PZSubscription, BuildProgress, ExtractProgress, PZVideo } from 'pzpack'
+import type { PZSubscription } from 'pzpack'
 import type {
   ConfigKey,
   ConfigValue,
@@ -7,9 +7,11 @@ import type {
   AppliactionInfo,
   PZPKOpenResult,
   PZPKIndexResult,
-  PZPKPackResult,
-  PZPKPackArgs,
+  PZPKTaskResult,
+  PZOpenArgs,
   PZExtractArgs,
+  PZIndexArgs,
+  PZBuildArgs,
   PWBookArgs,
   PWBookResult,
   PZPKBaseResult,
@@ -17,22 +19,37 @@ import type {
 
 export interface MainChannels {
   'window:operate': 'close' | 'maximize' | 'minimize' | 'hidden' | 'visibility'
-  'theme:set': Theme
   'exec:explayer': { url: string }
 }
+
+interface IPCTaskDataBase {
+  id: string
+  status: 'next' | 'error' | 'complete'
+}
+interface IPCTaskDataNext <T> extends IPCTaskDataBase {
+  status: 'next'
+  data: T
+}
+interface IPCTaskDataError extends IPCTaskDataBase {
+  status: 'error'
+  error: {
+    errorCode?: string
+    param?: Record<string, string | number>
+    message: string
+  }
+}
+interface IPCTaskDataComplete <R> extends IPCTaskDataBase {
+  status: 'complete'
+  canceled: boolean
+  data: R
+}
+type IPCTaskData<T, R> = IPCTaskDataNext<T> | IPCTaskDataError | IPCTaskDataComplete <R>
+
 export interface RendererChannels {
   'window:changed': 'resize' | 'maximize' | 'unmaximize' | 'minimize' | 'restore'
   'theme:changed': Theme
   'dev:reloadcss': void
-
-  'pzpk:building': { hash: string; progress: BuildProgress }
-  'pzpk:mvbuilding': { hash: string; progress: PZVideo.PZMVProgress }
-  'pzpk:builderror': { hash: string; error: string }
-  'pzpk:buildcomplete': { hash: string; canceled: boolean }
-  'pzpk:extract': { hash: string; progress: ExtractProgress }
-  'pzpk:extracterror': { hash: string; error: string }
-  'pzpk:extractcomplete': { hash: string; canceled: boolean }
-
+  'pzpk:task': IPCTaskData<unknown, unknown>
   'pwbook:update': { items: string[] }
 }
 
@@ -65,17 +82,22 @@ interface IPCInvokes {
   'application:inited': [void, { maximize: boolean; theme: Theme }]
   'application:getinfo': [void, AppliactionInfo]
   'application:getpkg': [void, PackageInfo]
+  'application:clearcache': [void, void]
+
+  'explayer:check': [string, boolean]
+  'load:text': [string, string]
 
   'operate:openfile': [Electron.FileFilter[] | void, string]
   'operate:openfilemulti': [Electron.FileFilter[] | void, string[]]
   'operate:savefile': [Electron.FileFilter[] | void, string]
   'operate:openfolder': [void, string]
+  'operate:scanfolder': [void, { folder: string, files: string[] }]
 
-  'pzpk:open': [{ filename: string; password: string }, PZPKOpenResult]
+  'pzpk:open': [PZOpenArgs, PZPKOpenResult]
+  'pzpk:getIndex': [PZIndexArgs, PZPKIndexResult]
   'pzpk:close': [string, void]
-  'pzpk:pack': [PZPKPackArgs, PZPKPackResult]
-  'pzpk:getIndex': [string, PZPKIndexResult]
-  'pzpk:extract': [PZExtractArgs, PZPKPackResult]
+  'pzpk:build': [PZBuildArgs, PZPKTaskResult]
+  'pzpk:extract': [PZExtractArgs, PZPKTaskResult]
   'pzpk:canceltask': [string, void]
 
   'pwbook:close': [void, PZPKBaseResult]

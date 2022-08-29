@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect, memo, useContext, useMemo, useCallback } from 'react'
-import { PZSubscription, type PZFolder, type PZFilePacked, type PZIndexReader } from 'pzpack'
+import { PZSubscription, type PZFilePacked, PZUtils } from 'pzpack'
 import { useTranslation } from 'react-i18next'
-import { RendererLogger } from '../../service/logger'
-import { wait } from '../../../lib/utils'
 import { PZButton, PZLocked } from '../shared'
 import {
   UnFullscreenIcon,
@@ -89,7 +87,6 @@ const bindPositionHandles = (el: HTMLDivElement, img: HTMLImageElement) => {
   })
   el.addEventListener('mouseup', (ev) => {
     if (ev.buttons === 1) {
-      RendererLogger.debug('on buttons === 1 fired')
       ev.preventDefault()
 
       if (operateState.keeping) {
@@ -159,7 +156,7 @@ const createViewerContentBinding = () => {
         zoom = computeDefaultZoom()
       }
       setZoom()
-      wait(100).then(() => el.classList.remove('loading'))
+      PZUtils.wait(100).then(() => el.classList.remove('loading'))
     }
     bindPositionHandles(el, image)
     el.addEventListener('wheel', (ev) => {
@@ -202,12 +199,9 @@ const clearViewerContentBinding = () => {
   if (!bindingInstance) return
 
   bindingInstance.element.remove()
-  RendererLogger.debug('Viewer container binding removed')
 }
 const bindViewerContent = (container: HTMLDivElement | null) => {
-  RendererLogger.debug('Viewer container binding calling')
   if (!container) {
-    RendererLogger.debug('Viewer container is null')
     return
   }
 
@@ -234,8 +228,6 @@ const ViewerContent: React.FC = () => {
     contentBinding?.change(getImage(count))
     setCountCache(count)
   }
-
-  RendererLogger.debug(`ViewerContent render: ${count} / ${total}`)
 
   useEffect(() => {
     const c = bindViewerContent(containerRef.current)
@@ -333,12 +325,11 @@ const ViewerContent: React.FC = () => {
 interface ImageViewerProps {
   port: number
   hash: string
-  indices: PZIndexReader
-  folder: PZFolder
+  files: PZFilePacked[]
   initFile: PZFilePacked
 }
 export const ImageViewer: React.FC<ImageViewerProps> = memo((props) => {
-  const context = useImageContext(props.port, props.hash, props.indices, props.folder, props.initFile)
+  const context = useImageContext(props.port, props.hash, props.files, props.initFile)
 
   return (
     <ImageViewerContext.Provider value={context}>

@@ -9,10 +9,9 @@ import { openPwbookDialog, openPwbookEditDialog } from './pwbook-dialogs'
 import { openConfirmDialog } from './dialogs'
 import { openOpenFileDialog } from './open-dialog'
 import { closePasswordBook } from '../../service/pwbook'
-import { getConfig } from '../../service/config'
-import { closePZInstance, openPZBuilder, openPZMVBuilder } from '../../service/pzpack'
+import { closePZInstance, openPZBuilder } from '../../service/pzpack'
 import { sendToChannel } from '../../service/ipc'
-import { getInfo } from '../../service/global'
+import { getInfo, clearCache } from '../../service/global'
 
 const packageInfo = lazyValue(() => {
   const globalInfo = getInfo()
@@ -202,29 +201,6 @@ const TitleMenu = (props: { hidden: boolean }) => {
       openPZBuilder()
     }
   }, [instance, confirm])
-  const openVideoBuilder = useCallback(() => {
-    if (instance && instance.type !== 'mvbuilder') {
-      const ob = openConfirmDialog(t('has opened doc alert'), t('warning'))
-      ob.subscribe((ok) => {
-        if (ok === 'ok') openPZMVBuilder()
-      })
-    } else {
-      Promise.all([getConfig('ffmpeg'), getConfig('tempDir')]).then(([p1, p2]) => {
-        let msg
-        if (!p1) msg = t('ffmpeg not set warning')
-        else if (!p2) msg = t('temp directory not set warning')
-
-        if (msg) {
-          const ob = openConfirmDialog(msg, t('warning'))
-          ob.subscribe((ok) => {
-            if (ok === 'ok') openSettingDialog()
-          })
-        } else {
-          openPZMVBuilder()
-        }
-      })
-    }
-  }, [instance, confirm, openSettingDialog])
 
   return (
     <div
@@ -235,12 +211,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
       )}
     >
       <TitleMenuItem text={t('open')} onActive={openOpenFileDialog} />
-      <TitleMenuItem text={t('create')}>
-        <SubMenu>
-          <TitleMenuItem text={t('pzpack file')} onActive={openBuilder} />
-          <TitleMenuItem text={t('pzvideo file')} onActive={openVideoBuilder} />
-        </SubMenu>
-      </TitleMenuItem>
+      <TitleMenuItem text={t('create')} onActive={openBuilder} />
       <TitleMenuItem text={t('close')} disabled={!opened} onActive={closePZInstance} />
       <TitleMenuSeparator />
       <TitleMenuItem text={t('setting')} onActive={openSettingDialog} />
@@ -253,6 +224,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
       <TitleMenuSeparator />
       <TitleMenuItem disabled text={t('help')} />
       <TitleMenuItem disabled text={t('about')} />
+      <TitleMenuItem text={t('clear cache')} onActive={clearCache} />
       <TitleMenuSeparator />
       <TitleMenuItem text={t('exit')} onActive={closeWindow} />
     </div>

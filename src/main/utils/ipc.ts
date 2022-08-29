@@ -1,6 +1,6 @@
 import { ipcMain, type BrowserWindow } from 'electron'
 import { PZSubscription } from 'pzpack'
-import { AppLogger } from './logger'
+import { appLogger } from './logger'
 import type {
   MainChannelReceiver,
   MainChannelSender,
@@ -8,7 +8,7 @@ import type {
   RendererChannelKeys,
   RendererChannelData,
   InvokeChannel,
-  InvokeHandler
+  InvokeHandler,
 } from '../../lib/ipc.channel'
 
 const receiverStore = new Map<MainChannelKeys, PZSubscription.PZSubject<any>>()
@@ -25,17 +25,17 @@ export const getReceiver = <C extends MainChannelKeys>(channel: C): MainChannelR
   if (!receiver) {
     receiver = createReciveSubject(channel)
   }
-  return receiver.asObservable()
+  return receiver.toObservable()
 }
 
-type SenderPayload<C extends RendererChannelKeys> = { channel: C, data: RendererChannelData<C> }
+type SenderPayload<C extends RendererChannelKeys> = { channel: C; data: RendererChannelData<C> }
 const globalSender = new PZSubscription.PZSubject<SenderPayload<any>>()
 const senderStore = new Map<RendererChannelKeys, MainChannelSender<any>>()
 export const getSender = <C extends RendererChannelKeys>(channel: C): MainChannelSender<C> => {
   let sender = senderStore.get(channel)
   if (!sender) {
     sender = {
-      send: (data) => globalSender.next({ channel, data })
+      send: (data) => globalSender.next({ channel, data }),
     }
     senderStore.set(channel, sender)
   }
@@ -48,7 +48,7 @@ export const getSender = <C extends RendererChannelKeys>(channel: C): MainChanne
  */
 export const registerMainWindow = (mainWindow: BrowserWindow) => {
   mainWindow.webContents.on('ipc-message', (ev, channel, arg) => {
-    AppLogger.info('Ipc message:', channel, arg)
+    appLogger.info('Ipc message:', channel, arg)
     const notify = getReciveNotify(channel as MainChannelKeys)
     notify?.next(arg)
   })
@@ -60,9 +60,11 @@ export const registerMainWindow = (mainWindow: BrowserWindow) => {
 
 export const registerInvoke = <C extends InvokeChannel>(channel: C, handler: InvokeHandler<C>) => {
   ipcMain.handle(channel, (ev, arg) => {
+    if (ENV_DEV) appLogger.debug('Ipc invoke channel:', channel, arg)
     return handler(arg)
   })
 }
 export const unregisterInvoke = <C extends InvokeChannel>(channel: C) => {
   ipcMain.removeHandler(channel)
 }
+

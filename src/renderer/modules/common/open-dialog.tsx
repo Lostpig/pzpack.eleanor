@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useContext, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { mergeCls } from '../../utils'
+import { errorMessage, mergeCls } from '../../utils'
 import { ModalContext } from './modal'
 import { PZButton, PZPassword, type PZPasswordRef } from '../shared'
 import { DialogBase } from './dialogs'
-import { RendererLogger } from '../../service/logger'
 import { openModal, closeModal } from '../../service/modal'
 import { openPZloader } from '../../service/pzpack'
 import { openFile } from '../../service/io'
@@ -26,7 +25,7 @@ const OpenFileDialog = (props: FileDialogProps) => {
     const pw = pwElRef.current?.value ?? ''
     openPZloader(props.path, pw).then((result) => {
       if (result.success) closeModal(id)
-      else setMsg(result.message && result.message !== '' ? result.message : 'unknown error')
+      else setMsg(errorMessage(result.error, t))
     })
   }, [setMsg, pwElRef.current])
 
@@ -61,7 +60,6 @@ export const openOpenFileDialog = async () => {
 
   const tryResult = await tryOpenFile(file)
   if (tryResult.success) {
-    RendererLogger.info('matching password book success')
     return
   }
 

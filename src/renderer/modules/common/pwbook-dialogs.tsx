@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useContext, useCallback, memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { mergeCls, defFilters, randomPassword } from '../../utils'
+import { mergeCls, defFilters, randomPassword, errorMessage } from '../../utils'
 import { ModalContext } from './modal'
 import { PZButton, PZPassword, type PZPasswordRef } from '../shared'
 import { DialogBase } from './dialogs'
@@ -33,7 +33,7 @@ const OpenPwBookDialog = (props: PwBookDialogProps) => {
 
     openPasswordBook(props.path, pw, props.mode).then((result) => {
       if (result.success) closeModal(id, result.filename)
-      else setMsg(result.message && result.message !== '' ? result.message : 'unknown error')
+      else setMsg(errorMessage(result.error, t))
     })
   }, [setMsg, pwElRef.current])
 
@@ -79,7 +79,7 @@ const AddPassowrdDialog = () => {
 
         addPassword(pw).then((res) => {
           if (res.success) closeModal(id)
-          else setMsg(res.message)
+          else setMsg(errorMessage(res.error, t))
         })
       } else {
         closeModal(id)

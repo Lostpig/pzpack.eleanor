@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { appWindow } from './utils/window'
-import { AppLogger } from './utils/logger'
+import { appLogger } from './utils/logger'
 import { config } from './utils/config'
 import { registerAll, unregisterAll } from './register'
 
@@ -23,8 +23,10 @@ const boot = async () => {
   })
   // Uncaught error
   process.on('uncaughtException', (e) => {
-    AppLogger.errorStack(e)
+    appLogger.errorStack(e)
   })
+
+  appWindow.load()
 }
 
 boot()

@@ -1,7 +1,8 @@
 import * as fsp from 'fs/promises'
-import { PZHelper, PZCryptos, currentVersion, PZSubscription } from 'pzpack'
-import { lazyValue, nextTick } from '../../lib/utils'
-import { ensureFileDirAsync } from '../../lib/io'
+import { PZSubscription, PZHash, PZUtils, type PZCrypto, createKey, createKeyHash, createPZCrypto, PZExceptions } from 'pzpack'
+import { errorCodes } from '../../lib/exceptions'
+import { lazyValue } from '../../lib/utils'
+import { ensureFileDirAsync } from './io'
 
 interface PWRecord {
   hash: Buffer
@@ -9,19 +10,19 @@ interface PWRecord {
   hashHex: string
 }
 const pwBookSign = lazyValue(() => {
-  const sign = PZHelper.sha256('PZ-PasswordBook')
-  const signHex = PZHelper.bytesToHex(sign)
+  const sign = PZHash.sha256('PZ-PasswordBook')
+  const signHex = PZUtils.bytesToHex(sign)
   return { sign, signHex }
 })
 const { PZSubject } = PZSubscription
 
 class PasswordBook {
   readonly filename: string
-  private crypto: PZCryptos.PZCrypto
+  private crypto: PZCrypto
   private map = new Map<string, PWRecord>()
   private subject = new PZSubject<string[]>()
-  get updater() {
-    return this.subject.asObservable()
+  observer () {
+    return this.subject.toObservable()
   }
   private initBook(data?: Buffer) {
     const bookMap = new Map<string, PWRecord>()
@@ -31,7 +32,7 @@ class PasswordBook {
     while (i < data.length) {
       const hash = data.slice(i, i + 32)
       const key = data.slice(i + 32, i + 64)
-      const hashHex = PZHelper.bytesToHex(hash)
+      const hashHex = PZUtils.bytesToHex(hash)
 
       bookMap.set(hashHex, { hash, key, hashHex })
       i += 64
@@ -43,23 +44,23 @@ class PasswordBook {
     if (this.updateFlag) return
 
     this.updateFlag = true
-    nextTick().then(() => {
+    PZUtils.nextTick().then(() => {
       this.subject.next(this.items())
       this.updateFlag = false
     })
   }
 
-  constructor(filename: string, crypto: PZCryptos.PZCrypto, data?: Buffer) {
+  constructor(filename: string, crypto: PZCrypto, data?: Buffer) {
     this.filename = filename
     this.crypto = crypto
     this.map = this.initBook(data)
   }
   add(password: string) {
-    const key = PZCryptos.createKey(password)
-    const hash = PZCryptos.createKeyHash(key)
+    const key = createKey(password)
+    const hash = createKeyHash(key)
 
     if (this.map.has(hash.hex)) {
-      throw new Error('PZPasswordBook add failed: password is already exists')
+      throw new PZExceptions.PZError(errorCodes.PasswordBookPasswordExists)
     }
     this.map.set(hash.hex, { key, hash: hash.hash, hashHex: hash.hex })
     this.update()
@@ -101,7 +102,7 @@ class PasswordBook {
   private encode() {
     const header = Buffer.alloc(64)
     pwBookSign.value.sign.copy(header, 0, 0, 32)
-    this.crypto.passwordHash.copy(header, 32, 0, 32)
+    this.crypto.pwHash.copy(header, 32, 0, 32)
 
     const data = this.buildData()
 
@@ -118,50 +119,49 @@ class PasswordBook {
   }
 }
 
-const checkPwBook = async (fh: fsp.FileHandle, key: Buffer) => {
+const checkPwBook = async (filename: string, fh: fsp.FileHandle, key: Buffer) => {
   const fstat = await fh.stat()
   if (!fstat.isFile()) {
-    throw new Error(`Open PZPasswordBook failed: path is not a file`)
+    throw new PZExceptions.PZError(PZExceptions.errorCodes.FileNotFound, { path: filename }, 'password book')
   }
 
   const tempBuffer = Buffer.alloc(32)
 
   const sign = pwBookSign.value.signHex
   const signRes = await fh.read(tempBuffer, 0, 32, 0)
-  const fileSign = PZHelper.bytesToHex(signRes.buffer)
+  const fileSign = PZUtils.bytesToHex(signRes.buffer)
   if (fileSign !== sign) {
-    throw new Error('Open PZPasswordBook failed: password book sign invalid')
+    throw new PZExceptions.PZError(errorCodes.PasswordBookCheckInvalid, { path: filename })
   }
 
-  const { hex } = PZCryptos.createKeyHash(key)
+  const { hex } = createKeyHash(key)
   const pwRes = await fh.read(tempBuffer, 0, 32, 32)
-  const fileHex = PZHelper.bytesToHex(pwRes.buffer)
+  const fileHex = PZUtils.bytesToHex(pwRes.buffer)
   if (fileHex !== hex) {
-    throw new Error('Open PZPasswordBook failed: master password invalid')
+    throw new PZExceptions.PZError(errorCodes.PasswordBookKeyInvalid, { path: filename })
   }
 }
 export const createPasswordBook = async (filename: string, masterPw: string) => {
-  const masterKey = PZCryptos.createKey(masterPw)
-  const crypto = PZCryptos.createPZCryptoByKey(masterKey, currentVersion)
+  const crypto = createPZCrypto(masterPw)
   return new PasswordBook(filename, crypto)
 }
 export const openPasswordBook = async (filename: string, masterPw: string) => {
   const fh = await fsp.open(filename, 'r')
-  const masterKey = PZCryptos.createKey(masterPw)
-  await checkPwBook(fh, masterKey)
+  const masterKey = createKey(masterPw)
+  await checkPwBook(filename, fh, masterKey)
 
   let data: Buffer | undefined = undefined
   const fullBookBuffer = await fh.readFile()
-  const crypto = PZCryptos.createPZCryptoByKey(masterKey, currentVersion)
+  const crypto = createPZCrypto(masterKey)
 
   if (fullBookBuffer.length > 64) {
     const encrypted = fullBookBuffer.slice(64)
-    data = crypto.decrypt(encrypted)
+    data = crypto.decryptBlock(encrypted)
   }
   await fh.close()
 
   if (data && data.length % 64 !== 0) {
-    throw new Error('Open PZPasswordBook failed: file size incorrect')
+    throw new PZExceptions.PZError(errorCodes.PasswordBookFileSizeIncorrect)
   }
 
   return new PasswordBook(filename, crypto, data)

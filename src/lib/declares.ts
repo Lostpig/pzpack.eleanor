@@ -1,4 +1,4 @@
-import type { PZTypes, PZVideo } from 'pzpack'
+import type { PZFilePacked, PZFolder, PZBuildOptions } from 'pzpack'
 
 export type Theme = 'dark' | 'light' | 'system'
 export interface ConfigSet {
@@ -7,9 +7,6 @@ export interface ConfigSet {
   language?: string
   maximizi?: boolean
   theme?: Theme
-
-  ffmpeg?: string
-  tempDir?: string
   externalPlayer?: string
 }
 export type ConfigKey = keyof ConfigSet
@@ -20,16 +17,13 @@ export interface PackageInfo {
   version: string
 }
 export interface AppliactionInfo {
-  DEV: boolean
   DEBUG: boolean
   ROOT: string
   RESOURCE: string
 }
 export interface PZLoaderStatus {
   filename: string
-  type: PZTypes
   version: number
-  description: string
   size: number
 }
 
@@ -41,15 +35,23 @@ export type PZPKOpenSuccess = {
 }
 export type PZPKIndexSuccess = {
   success: true
-  data: Buffer
+  data: {
+    files: PZFilePacked[],
+    folders: PZFolder[]
+  }
 }
-export type PZPKPackSuccess = {
+export type PZPKTaskSuccess = {
   success: true
-  hash: string
+  taskId: string
+  initState: unknown
 }
 export type PZPKFailedResult = {
   success: false
-  message: string
+  error: {
+    errorCode?: string
+    param?: Record<string, string | number>
+    message: string
+  }
 }
 export type PZPKSuccessResult = {
   success: true
@@ -57,31 +59,24 @@ export type PZPKSuccessResult = {
 export type PZPKBaseResult = PZPKSuccessResult | PZPKFailedResult
 export type PZPKOpenResult = PZPKOpenSuccess | PZPKFailedResult
 export type PZPKIndexResult = PZPKIndexSuccess | PZPKFailedResult
-export type PZPKPackResult = PZPKPackSuccess | PZPKFailedResult
+export type PZPKTaskResult = PZPKTaskSuccess | PZPKFailedResult
 
-export type PZBuildOptions = {
-  desc: string
+export type PZOpenArgs = {
+  path: string
   password: string
-  target: string
 }
-export type PZMVBuildOptions = Omit<PZVideo.PZMVBuilderOptions, 'ffmpegDir' | 'tempDir' | 'indexBuilder'>
-export interface PZPKBuildArgs {
-  type: 'PZPACK'
+export type PZIndexArgs = {
+  hash: string
+  path: string
+}
+export type PZBuildArgs = {
   indexData: string
   options: PZBuildOptions
 }
-export interface PZPKMvBuildArgs {
-  type: 'PZVIDEO'
-  indexData: string
-  target: string
-  options: PZMVBuildOptions
-}
-export type PZPKPackArgs = PZPKBuildArgs | PZPKMvBuildArgs
-
 export type PZExtractArgs = {
   hash: string
   type: 'all' | 'folder' | 'file'
-  source: { folderId: number, filename: string }
+  source: string
   target: string
 }
 

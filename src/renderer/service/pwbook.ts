@@ -1,6 +1,6 @@
 import { PZSubscription } from 'pzpack'
 import { invokeIpc, subscribeChannel } from './ipc'
-import { bindingPZloader } from './pzpack'
+import { bindingExplorer } from './pzpack'
 
 type OpenedPwBook = {
   filename: string
@@ -9,8 +9,8 @@ const inst = new PZSubscription.PZBehaviorSubject<OpenedPwBook | null>(null)
 const updater = new PZSubscription.PZSubject<string[]>()
 subscribeChannel('pwbook:update', (res) => updater.next(res.items))
 
-export const pwbookNotify = inst.asObservable()
-export const pwbookUpdater = updater.asObservable()
+export const pwbookNotify = inst.toObservable()
+export const pwbookUpdater = updater.toObservable()
 
 export const getCurrentPasswordBook = async () => {
   const result = await invokeIpc('pwbook:current', undefined)
@@ -42,5 +42,5 @@ export const tryOpenFile = async (file: string) => {
   const result = await invokeIpc('pwbook:tryopen', file)
   if (!result.success) return result
 
-  return await bindingPZloader(result.hash, result.port, result.loaderStatus)
+  return await bindingExplorer(result.hash, result.port, result.loaderStatus)
 }

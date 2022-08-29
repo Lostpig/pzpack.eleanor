@@ -10,13 +10,19 @@ import type {
   RendererChannelData,
   RendererChannelKeys,
 } from '../../lib/ipc.channel'
-import { RendererLogger } from './logger'
+import { logger } from './logger'
 
 const receiverMap = new Map<string, PZSubscription.PZSubject<any>>()
 const getReceiver = (key: string) => {
   let receiver = receiverMap.get(key)
   if (!receiver) {
     receiver = new PZSubscription.PZSubject()
+    if (ENV_DEV) {
+      receiver.subscribe((p) => {
+        logger.debug(`receive from ${key} ; payload = ${p}`)
+      })
+    }
+
     receiverMap.set(key, receiver)
   }
 
@@ -36,18 +42,19 @@ const sendToChannel = <T extends MainChannelKeys>(channel: T, data: MainChannelD
 }
 
 const invokeIpc = <T extends InvokeChannel>(channel: T, arg: InvokeArg<T>): Promise<InvokeRet<T>> => {
+  if (ENV_DEV) logger.debug(`invoke = ${channel} ; args = ${arg}`)
+
   return ipcRenderer.invoke(channel, arg)
 }
 
 export { subscribeChannel, sendToChannel, invokeIpc }
 export const initIpc = () => {
   ipcRenderer.on('renderer-message', (ev, payload: ReceiverPayload<any>) => {
-    RendererLogger.debug(`ipc receive from [${payload.channel}]: ${payload.data}`)
     getReceiver(payload.channel).next(payload.data)
   })
 
   sender.subscribe((payload) => {
-    RendererLogger.debug(`ipc send to [${payload.channel}]: ${payload.data}`)
+    if (ENV_DEV) logger.debug(`send ${payload.channel} ; payload = ${payload.data}`)
     ipcRenderer.send(payload.channel, payload.data)
   })
 }

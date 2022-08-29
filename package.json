@@ -1,8 +1,8 @@
 {
   "name": "eleanor",
-  "version": "0.0.10",
+  "version": "0.1.0",
   "description": "Eleanor: A pzpack gui client",
-  "main": "main.cjs",
+  "main": "./main.cjs",
   "files": [
     "main.cjs",
     "dist",
@@ -10,23 +10,24 @@
     "index.html"
   ],
   "scripts": {
-    "start": "electron . --dev",
+    "start": "electron . --debug",
     "check": "tsc --noEmit",
     "lint": "eslint --cache --ext .ts --format=pretty ./src",
     "lint:prettier": "prettier -c ./src/**/*",
     "prettier": "prettier --write ./src/**/*",
-    "build": "npm run build:prod && npm run build:css:prod",
+    "build": "npm run check && npm run build:prod && npm run build:css:prod",
     "pack": "electron-builder -p never --config electron-builder.config.cjs",
-    "build:dev": "node ./esbuild.cjs",
-    "build:prod": "node ./esbuild.cjs --prod",
+    "build:dev": "node ./scripts/esbuild.cjs",
+    "build:prod": "node ./scripts/esbuild.cjs --prod",
     "build:css": "tailwindcss -i ./src/style/index.css -o ./build/style.css",
     "build:css:prod": "tailwindcss -i ./src/style/index.css -o ./build/style.css --minify",
-    "watch:dev": "node ./esbuild.cjs --watch",
+    "watch:dev": "node ./scripts/esbuild.cjs --watch",
     "watch:css": "tailwindcss -i ./src/style/index.css -o ./build/style.css --watch"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/mime": "^3.0.1",
     "@types/natural-compare-lite": "^1.4.0",
     "@types/node": "^17.0.4",
     "@types/react": "^17.0.39",
@@ -51,15 +52,13 @@
     "typescript": "^4.5.5"
   },
   "dependencies": {
-    "dashjs": "^4.3.0",
     "i18next": "^21.6.13",
     "i18next-resources-to-backend": "^1.0.0",
+    "mime": "^3.0.0",
     "natural-compare-lite": "^1.4.0",
-    "parse-xsd-duration": "^0.5.0",
     "pzpack": "../pzpack.js",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "react-i18next": "^11.15.5",
-    "xml2js": "^0.4.23"
+    "react-i18next": "^11.15.5"
   }
 }

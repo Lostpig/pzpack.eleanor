@@ -1,5 +1,5 @@
 import { BrowserWindow, app } from 'electron'
-import { AppLogger } from './logger'
+import { appLogger } from './logger'
 import { EntryPage } from './common'
 import { config } from './config'
 import type { MainChannelData } from '../../lib/ipc.channel'
@@ -32,7 +32,7 @@ class WindowManager {
     const getLock = app.requestSingleInstanceLock()
 
     if (!getLock) {
-      AppLogger.error('Another instance is running, exiting')
+      appLogger.error('Another instance is running, exiting')
       app.quit()
     } else {
       app.on('second-instance', () => {
@@ -84,14 +84,12 @@ class WindowManager {
       }
     })
 
-    current.loadURL(EntryPage)
     if (config.get('maximizi') === true) {
       current.maximize()
     }
 
     this.initWindowOperate()
-
-    AppLogger.info('Main window inited')
+    appLogger.info('Main window inited')
   }
   private initWindowOperate() {
     registerMainWindow(this.main!)
@@ -122,6 +120,9 @@ class WindowManager {
     this.window?.on('restore', () => {
       sender.send('restore')
     })
+  }
+  load () {
+    this.main?.loadURL(EntryPage)
   }
 
   show() {
@@ -163,6 +164,9 @@ class WindowManager {
   reload() {
     if (!this.main) return
     this.main.reload()
+  }
+  clearCache () {
+    this.main?.webContents.session.clearCache()
   }
 
   close() {
