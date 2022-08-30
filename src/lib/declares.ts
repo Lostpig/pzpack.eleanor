@@ -36,6 +36,7 @@ export type PZPKOpenSuccess = {
 export type PZPKIndexSuccess = {
   success: true
   data: {
+    path: PZFolder[]
     files: PZFilePacked[],
     folders: PZFolder[]
   }
@@ -67,7 +68,7 @@ export type PZOpenArgs = {
 }
 export type PZIndexArgs = {
   hash: string
-  path: string
+  folderId?: number
 }
 export type PZBuildArgs = {
   indexData: string

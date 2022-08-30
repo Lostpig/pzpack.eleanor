@@ -1,5 +1,5 @@
 import React, { memo, useState, useContext, createContext, useCallback, useEffect } from 'react'
-import type { PZFolder, PZFilePacked } from 'pzpack'
+import type { PZFolder, PZFilePacked,  } from 'pzpack'
 import naturalCompare from 'natural-compare-lite'
 import { useTranslation } from 'react-i18next'
 
@@ -17,7 +17,7 @@ import { extractAll, extractFile, extractFolder, loadIndex } from '../../service
 import { openExtractDialog } from './extract'
 
 type ContentContextType = {
-  navigate: (folderPath: string) => void
+  navigate: (folder: PZFolder) => void
   openFile: (initFile: PZFilePacked) => void
 }
 const ContentContext = createContext<ContentContextType>({} as ContentContextType)
@@ -25,20 +25,10 @@ const ContentContext = createContext<ContentContextType>({} as ContentContextTyp
 const ExplorerInfoSeparator = () => {
   return <div className="mx-3 w-px h-4/5 bg-neutral-400"></div>
 }
-const Breadcrumbs: React.FC<{ current: string }> = memo((props) => {
+const Breadcrumbs: React.FC<{ path: PZFolder[] }> = memo((props) => {
   const [t] = useTranslation()
   const { navigate } = useContext(ContentContext)
-  const { current } = props
-
-  const pathes = current.split('/').filter((s) => s !== '')
-  const list: { name: string; fullname: string }[] = [{ name: 'root', fullname: '' }]
-  pathes.reduce((p, c) => {
-    list.push({
-      name: c,
-      fullname: p + '/' + c,
-    })
-    return p + '/' + c
-  }, '')
+  const { path } = props
 
   const extractAllHandler = async () => {
     const targetDir = await openDir()
@@ -58,17 +48,17 @@ const Breadcrumbs: React.FC<{ current: string }> = memo((props) => {
         <ExtractIcon size={20} />
       </PZButton>
       <ExplorerInfoSeparator />
-      {list.map((f) => {
+      {path.map((f, i) => {
         return (
           <div key={f.name}>
             <PZButton
               className="flex items-center"
               type="link"
-              onClick={() => navigate(f.fullname)}
-              disabled={f.fullname === current}
+              onClick={() => navigate(f)}
+              disabled={i === path.length - 1}
             >
-              <span className="mr-4">{f.name}</span>
-              {f.fullname === current ? null : <RightIcon size={16} />}
+              <span className="mr-4">{f.name || t("root")}</span>
+              {i === path.length - 1 ? null : <RightIcon size={16} />}
             </PZButton>
           </div>
         )
@@ -95,7 +85,7 @@ const ExolorerFolder: React.FC<{ folder: PZFolder }> = memo((props) => {
   return (
     <div
       className="flex items-center py-1 px-4 select-none hover:bg-blue-200 dark:text-gray-50 dark:hover:bg-neutral-600"
-      onDoubleClick={() => navigate(folder.fullname)}
+      onDoubleClick={() => navigate(folder)}
     >
       <FiletypeIcon type="folder" size={20} />
       <div className="flex-1 text-ellipsis pl-4 overflow-hidden whitespace-nowrap">{folder.name}</div>
@@ -140,7 +130,7 @@ const ExolorerFile: React.FC<{ file: PZFilePacked }> = memo((props) => {
     </div>
   )
 })
-const ExplorerList: React.FC<{ current: string, files: PZFilePacked[], folders: PZFolder[] }> = memo((props) => {
+const ExplorerList: React.FC<{ files: PZFilePacked[], folders: PZFolder[] }> = memo((props) => {
   return (
     <div className="flex-1 auto-scrollbar">
       {props.folders
@@ -156,7 +146,7 @@ const ExplorerList: React.FC<{ current: string, files: PZFilePacked[], folders: 
     </div>
   )
 })
-const ExplorerInfo: React.FC<{ current: string, files: PZFilePacked[], folders: PZFolder[] }> = memo((props) => {
+const ExplorerInfo: React.FC<{ files: PZFilePacked[], folders: PZFolder[] }> = memo((props) => {
   const [t] = useTranslation()
   const { status } = useContext(ExplorerContext)
 
@@ -178,24 +168,24 @@ const ExplorerInfo: React.FC<{ current: string, files: PZFilePacked[], folders: 
 })
 
 const ExplorerContent = () => {
-  const [currentPath, setCurrentPath] = useState('')
+  const [currentPath, setCurrentPath] = useState<PZFolder[]>([])
   const [files, setFiles] = useState<PZFilePacked[]>([])
   const [folders, setFolders] = useState<PZFolder[]>([])
   const { hash, port } = useContext(ExplorerContext)
 
   useEffect(() => {
-    loadIndex('').then(res => {
+    loadIndex().then(res => {
       if (res.success) {
-        setCurrentPath('')
+        setCurrentPath(res.data.path)
         setFiles(res.data.files)
         setFolders(res.data.folders)
       }
     })
   }, [])
-  const openFolder = async (path: string) => {
-    const res = await loadIndex(path)
+  const openFolder = async (folder: PZFolder) => {
+    const res = await loadIndex(folder.id)
     if (res.success) {
-      setCurrentPath(path)
+      setCurrentPath(res.data.path)
       setFiles(res.data.files)
       setFolders(res.data.folders)
     }
@@ -209,15 +199,15 @@ const ExplorerContent = () => {
   }, [hash, port, files])
 
   const context: ContentContextType = {
-    navigate: (path: string) => openFolder(path),
+    navigate: (folder: PZFolder) => openFolder(folder),
     openFile
   }
   return (
     <div className="w-full h-full flex flex-col">
       <ContentContext.Provider value={context}>
-        <Breadcrumbs current={currentPath} />
-        <ExplorerList current={currentPath} files={files} folders={folders} />
-        <ExplorerInfo current={currentPath} files={files} folders={folders} />
+        <Breadcrumbs path={currentPath} />
+        <ExplorerList files={files} folders={folders} />
+        <ExplorerInfo files={files} folders={folders} />
       </ContentContext.Provider>
     </div>
   )

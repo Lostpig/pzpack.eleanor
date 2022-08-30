@@ -24,7 +24,7 @@ const register = () => {
   })
 
   registerInvoke('load:text', (file: string) => {
-    const filePath = path.join(RESOURCE, file)
+    const filePath = path.join(RESOURCE, file.toLowerCase())
     const text = fs.readFileSync(filePath, { encoding: 'utf8' })
     return text
   })

@@ -164,10 +164,10 @@ export const extractAll = async (target: string) => {
   return await startExtract(args)
 }
 
-export const loadIndex = async (path: string) => {
+export const loadIndex = async (folderId?: number) => {
   if (!PZInstanceSubject.current || PZInstanceSubject.current.type !== 'explorer') {
     return createErrorResult(errorCodes.PZFileNotOpened)
   }
 
-  return invokeIpc('pzpk:getIndex', { hash: PZInstanceSubject.current.hash, path })
+  return invokeIpc('pzpk:getIndex', { hash: PZInstanceSubject.current.hash, folderId })
 }

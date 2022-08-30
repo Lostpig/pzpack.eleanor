@@ -212,15 +212,17 @@ export const getIndex = (args: PZIndexArgs): PZPKIndexResult => {
   }
 
   const { index } = runningContext.loader.instance
-  const folder = index.getFolder(args.path)
+  const folder = index.folderOfId(args.folderId ?? index.root.id)
   if (!folder) {
-    return createErrorResult(PZExceptions.errorCodes.FolderNotFound, { path: args.path })
+    return createErrorResult(PZExceptions.errorCodes.FolderNotFound, { id: args.folderId ?? "" })
   }
 
+  const path = index.getFoldersToRoot(folder)
   const children = index.getChildren(folder)
   return {
     success: true,
     data: {
+      path,
       files: children.files,
       folders: children.folders,
     },
