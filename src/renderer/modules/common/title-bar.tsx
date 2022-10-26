@@ -200,7 +200,7 @@ const TitleMenu = (props: { hidden: boolean }) => {
     } else {
       openPZBuilder()
     }
-  }, [instance, confirm])
+  }, [instance])
 
   return (
     <div

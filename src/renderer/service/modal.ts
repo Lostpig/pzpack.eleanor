@@ -17,7 +17,10 @@ let modalChangingFlag = false
 const modalHandleStore = new Map<number, PZSubscription.PZSubject<string | undefined>>()
 
 const execOpenModal = (key: number, element: React.ReactElement, handle: PZSubscription.PZSubject<string | undefined>) => {
-  if (modalChangingFlag) PZUtils.wait(1).then(() => execOpenModal(key, element, handle))
+  if (modalChangingFlag) {
+    PZUtils.wait(1).then(() => execOpenModal(key, element, handle))
+    return
+  }
 
   modalChangingFlag = true
   const state = modalStateNotify.current
